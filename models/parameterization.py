@@ -1,4 +1,3 @@
-from email.charset import QP
 from math import trunc
 from tools.computational_tools import PDF_histogram
 from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
@@ -8,6 +7,21 @@ import numpy as np
 
 YEAR = 24*60*60*360.
 DEFAULT_PYQG_PARAMS = dict(nx=64, dt=3600., tmax=10*YEAR, tavestart=5*YEAR)
+
+def sample(ds, time=slice(-20,None), variable='q'):
+    '''
+    Recieves xr.Dataset and returns
+    initial condition for QGModel as xarray
+    '''
+    q = ds[variable]
+    if 'time' in q.dims:
+        q = q.isel(time=time)
+    
+    for dim in ['run', 'time']:
+        if dim in q.dims:
+            coordinate = {dim: np.random.choice(q[dim])}
+            q = q.sel(coordinate)
+    return q
 
 def process_dataset(ds, delta):
     '''
@@ -120,6 +134,18 @@ class Parameterization(pyqg.QParameterization):
             m.run()
             ds = xr.concat((ds, m.to_dataset()), dim='run', combine_attrs='drop_conflicts')
         return process_dataset(ds, m.delta)
+
+    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine):
+        '''
+        Sample initial conditions from ds and 
+        run ensemble of simulations
+        '''
+        m_param = pyqg.QGModel(**params_coarse, parameterization=self)
+        m_coarse = pyqg.QGModel(**params_coarse)
+        m_fine = pyqg.QGModel(**params_fine)
+
+        q = sample(ds)
+        m_param.set_q1q2(*q.astype('float64'))        
 
     def test_offline(self, ds: xr.Dataset, ensemble_size=10):
         '''
