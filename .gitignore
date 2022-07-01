@@ -1,0 +1,7 @@
+__pycache__*
+.ipynb_checkpoints*
+folder/*
+slurm.*
+notebooks/checkpoints/*
+notebooks/net_state
+notebooks/stats.nc
