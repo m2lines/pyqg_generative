@@ -17,7 +17,7 @@ def process_dataset(ds, delta):
     Computes PDFs
     Average statistics over runs
     '''
-    ds = ds.drop_vars(('qh', 'uh', 'vh', 'ph', 'dqhdt')).squeeze()
+    ds = ds.drop_vars(('qh', 'uh', 'vh', 'ph', 'dqhdt'))
 
     # Compute 1D spectra
     m = xarray_to_model(ds)
@@ -25,6 +25,7 @@ def process_dataset(ds, delta):
         'ENSflux', 'ENSfrictionspec', 'ENSgenspec', 'ENSparamspec', 
         'Ensspec', 'KEflux', 'KEfrictionspec', 'KEspec', 'entspec', 
         'paramspec', 'paramspec_APEflux', 'paramspec_KEflux']:
+        ds[key] = ds[key].squeeze()
         var = ave_lev(ds[key].mean(dim='run'), delta)
 
         k, sp = calc_ispec(m, var.values, averaging=False, truncate=False)

@@ -4,7 +4,7 @@ import pyqg
 
 def xarray_to_model(arr):
     nx = len(arr.x)
-    return pyqg.QGModel(nx=nx)
+    return pyqg.QGModel(nx=nx, log_level=0)
 
 coord = lambda x, name: xr.DataArray(x, attrs={'long_name': name})
 
@@ -61,7 +61,7 @@ class spectrum():
             pass
 
         rel_error = float(np.abs((Esp-E)/E))
-        print(f'Relative error in spectral sum for {self.type}: {rel_error}')
+        #print(f'Relative error in spectral sum for {self.type}: {rel_error}')
 
     def fft2d(self, _xarray):
         M = _xarray.shape[-1] * _xarray.shape[-2]
