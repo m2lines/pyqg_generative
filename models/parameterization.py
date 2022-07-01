@@ -48,6 +48,40 @@ def process_dataset(ds, delta):
 
     return ds
 
+def subgrid_scores(true, mean, gen):
+    '''
+    Compute scalar metrics for three components of subgrid forcing:
+    - Mean subgrid forcing      ~ close to true forcing in MSE
+    - Generated subgrid forcing ~ close to true forcing in spectrum
+    - Genereted residual        ~ close to true residual in spectrum 
+    true - xarray with true forcing
+    mean - mean prediction
+    gen  - generated prediction
+
+    Result is score, i.e. 1-mse/normalization
+
+    Here we assuma that dataset has dimensions run x time x lev x Ny x Nx
+    '''
+    def R2(x, x_true):
+        dims = [d for d in x.dims if d != 'lev']
+        return float((1 - ((x-x_true)**2).mean(dims) / (x_true**2).mean(dims)).mean())
+    
+    # first compute R2 for each layer, and after that normalize
+    R2_mean = R2(mean, true)
+
+    sp = spectrum(time=slice(None,None)) # power spectrum for full time slice
+
+    sp_true = sp(true)
+    sp_gen = sp(gen)
+    R2_total = R2(sp_gen, sp_true)
+    
+    sp_true_res = sp(true-mean)
+    sp_gen_res = sp(gen-mean)
+
+    R2_residual = R2(sp_gen_res, sp_true_res)
+
+    return R2_mean, R2_total, R2_residual
+
 class Parameterization(pyqg.QParameterization):
     def predict(self, ds):
         '''
@@ -108,6 +142,10 @@ class Parameterization(pyqg.QParameterization):
         # residuals
         preds[target+'_res'] = preds[target] - preds[target+'_mean']
         preds[target+'_gen_res'] = preds[target+'_gen'] - preds[target+'_mean']
+
+        # subgrid scores
+        preds['R2_mean'], preds['R2_total'], preds['R2_residual'] = \
+            subgrid_scores(ds[target], preds[target+'_mean'], preds[target+'_gen'])
 
         # Andrew metrics
         def dims_except(*dims):
