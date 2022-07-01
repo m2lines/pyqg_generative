@@ -133,6 +133,13 @@ class Parameterization(pyqg.QParameterization):
         preds['temporal_correlation'] = xr.corr(true, pred, dim=space)
         preds['correlation'] = xr.corr(true, pred, dim=both)
 
+        preds['temporal_var_ratio'] = \
+            (preds[target+'_gen_res']**2).mean(dim=space) / \
+            (preds[target+'_res']**2).mean(dim=space)
+        preds['var_ratio'] = \
+            (preds[target+'_gen_res']**2).mean(dim=both) / \
+            (preds[target+'_res']**2).mean(dim=both)
+
         # Spectral characteristics
         sp = spectrum()
         def sp_save(arr):
