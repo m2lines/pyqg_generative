@@ -1,4 +1,4 @@
-from math import trunc
+import sys; sys.path.insert(0, '../')
 from tools.computational_tools import PDF_histogram
 from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
 import xarray as xr
@@ -329,3 +329,20 @@ class ReferenceModel(Parameterization):
         super().__init__()
     def __call__(self, m):
         return m.q*0
+
+if __name__ == '__main__':
+    from tools.cnn_tools import read_dataset
+    test = read_dataset('/scratch/zanna/data/pyqg/data/test/*.nc')
+    transfer = read_dataset('/scratch/zanna/data/pyqg/data/transfer/*.nc')
+
+    params = test.pyqg_params
+    params.update({'nx': 256, 'ny': 256})
+
+    model = ReferenceModel()
+    model.test_online(params).to_netcdf('online_eddy.nc')
+
+    params = transfer.pyqg_params
+    params.update({'nx': 256, 'ny': 256})
+
+    model = ReferenceModel()
+    model.test_online(params).to_netcdf('online_jet.nc')
