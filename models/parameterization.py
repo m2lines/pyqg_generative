@@ -103,6 +103,10 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
         coords=[coord(points, 'kinetic energy, $m^2/s^2$')],
         attrs=dict(long_name='PDF of depth-averaged KE'))
 
+    # Compute time-series
+    ds['KE'] = xr.DataArray(KE.mean(dim=('run', 'x', 'y')),
+        attrs=dict(long_name='depth-averaged kinetic energy, $m^2/s^2$'))
+
     return ds
 
 def run_simulation(pyqg_params=EDDY_PARAMS, parameterization = None, sample_interval = 30):
@@ -194,6 +198,7 @@ class Parameterization(pyqg.QParameterization):
             
         datasets = []    
         for run in range(nruns):
+            print('run = ', run)
             datasets.append(run_simulation(pyqg_params, 
                 parameterization = self))
         return concat_in_run(datasets, delta=delta)
@@ -337,11 +342,11 @@ class ReferenceModel(Parameterization):
 
 if __name__ == '__main__':
     params = EDDY_PARAMS
-    params.update({'nx': 256})
+    params.update({'nx': 256, 'ntd': 4, 'logfile': 'log.txt'})
     model = ReferenceModel()
     model.test_online(params).to_netcdf('online_eddy.nc')
 
     params = JET_PARAMS
-    params.update({'nx': 256})
+    params.update({'nx': 256, 'ntd': 4, 'logfile': 'log.txt'})
     model = ReferenceModel()
     model.test_online(params).to_netcdf('online_jet.nc')
