@@ -5,10 +5,13 @@ import xarray as xr
 import pyqg
 import numpy as np
 
-YEAR = 24*60*60*360.
-DEFAULT_PYQG_PARAMS = dict(nx=64, dt=3600., tmax=10*YEAR, tavestart=5*YEAR)
+DAY = 86400
+DEFAULT_PYQG_PARAMS = dict(nx=64, dt=3600., tmax=90*DAY, tavestart=45*DAY)
+SAMPLE_SLICE = slice(-20, None) # in indices
+AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
+AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
 
-def sample(ds, time=slice(-20,None), variable='q'):
+def sample(ds, time=SAMPLE_SLICE, variable='q'):
     '''
     Recieves xr.Dataset and returns
     initial condition for QGModel as xarray
@@ -23,15 +26,45 @@ def sample(ds, time=slice(-20,None), variable='q'):
             q = q.sel(coordinate)
     return q
 
-def process_dataset(ds, delta):
+def concat_in_time(datasets):
     '''
-    Removes all complex variables
-    Squeeze unnecessary dimensions
-    Computes 1D spectra 
-    Computes PDFs
-    Average statistics over runs
+    Concatenation of snapshots in time:
+    - Concatenate everything
+    - Store averaged statistics
+    - Discard complex vars
+    - Reduce precision
     '''
-    ds = ds.drop_vars(('qh', 'uh', 'vh', 'ph', 'dqhdt'))
+    # Concatenate datasets along the time dimension
+    ds = xr.concat(datasets, dim='time')
+    
+    # Diagnostics get dropped by this procedure since they're only present for
+    # part of the timeseries; resolve this by saving the most recent
+    # diagnostics (they're already time-averaged so this is ok)
+    for key,var in datasets[-1].variables.items():
+        if key not in ds:
+            ds[key] = var.isel(time=-1)
+
+    # To save on storage, reduce double -> single
+    # And discard complex vars
+    for key,var in ds.variables.items():
+        if var.dtype == np.float64:
+            ds[key] = var.astype(np.float32)
+        elif var.dtype == np.complex128:
+            ds = ds.drop_vars(key)
+
+    return ds
+
+def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
+    '''
+    Concatenation of runs:
+    - Computes 1D spectra 
+    - Computes PDFs
+    - Average statistics over runs
+
+    delta - H1/H2 layers height ratio, needed 
+    for vertical averaging
+    '''
+    ds = xr.concat(datasets, dim='run')
 
     # Compute 1D spectra
     m = xarray_to_model(ds)
@@ -39,7 +72,6 @@ def process_dataset(ds, delta):
         'ENSflux', 'ENSfrictionspec', 'ENSgenspec', 'ENSparamspec', 
         'Ensspec', 'KEflux', 'KEfrictionspec', 'KEspec', 'entspec', 
         'paramspec', 'paramspec_APEflux', 'paramspec_KEflux']:
-        ds[key] = ds[key].squeeze()
         var = ave_lev(ds[key].mean(dim='run'), delta)
 
         k, sp = calc_ispec(m, var.values, averaging=False, truncate=False)
@@ -48,19 +80,44 @@ def process_dataset(ds, delta):
             attrs=dict(long_name=ds[key].attrs['long_name'], units=ds[key].attrs['units']+' * m'))
         ds[key+'r'] = sp
 
+    # Check that selector defined in SECONDS (but not indices) works
+    assert len(ds.time.sel(time=time)) < len(ds.time)
+    # There are snapshots for PDF
+    assert len(ds.time.sel(time=time)) > 0
+
     # Compute PDFs
-    points, density = PDF_histogram(ds['q'].isel(lev=0).values.ravel(), Nbins=50, xmin=-3e-5, xmax=3e-5)
+    x = ds.sel(time=time).isel(lev=0)['q'].values.ravel()
+    points, density = PDF_histogram(x, Nbins=100, xmin=-3e-5, xmax=3e-5)
     ds['pdf_pv'] = xr.DataArray(density, dims=['pv'],
         coords=[coord(points, 'potential vorticity, $m^{-1}$')],
         attrs=dict(long_name='PDF of upper level PV'))
     
     KE = ave_lev(0.5*(ds.u**2 + ds.v**2), delta)
-    points, density = PDF_histogram(KE.values.ravel(), Nbins=50, xmin=0, xmax=0.005)
+    x = KE.sel(time=time).values.ravel()
+    points, density = PDF_histogram(x, Nbins=50, xmin=0, xmax=0.005)
     ds['pdf_ke'] = xr.DataArray(density, dims=['ke'],
         coords=[coord(points, 'kinetic energy, $m^2/s^2$')],
         attrs=dict(long_name='PDF of depth-averaged KE'))
 
     return ds
+
+def run_simulation(pyqg_params=DEFAULT_PYQG_PARAMS, parameterization = None, sample_interval = 30):
+    '''
+    Run model m with parameters pyqg_params
+    and saves snapshots every sample_interval days
+    Returns xarray.Dataset with snapshots and 
+    averaged statistics
+    '''
+    params = pyqg_params.copy()
+    if parameterization is not None:
+        params.update(parameterization = parameterization)
+    m = pyqg.QGModel(**params)
+    
+    snapshots = []
+    for t in m.run_with_snapshots(tsnapint = sample_interval*86400):
+        snapshots.append(m.to_dataset().copy(deep=True))
+    
+    return concat_in_time(snapshots)
 
 def subgrid_scores(true, mean, gen):
     '''
@@ -120,22 +177,21 @@ class Parameterization(pyqg.QParameterization):
         # Here I assume that there is only one target
         return self.predict(ds)[self.targets[0]].values
 
-    def test_online(self, pyqg_params={}, nruns=10):
+    def test_online(self, pyqg_params=DEFAULT_PYQG_PARAMS, nruns=10):
         '''
         Run ensemble of simulations with parameterization
-        and save statistics        
+        and save statistics 
         '''
-        params = DEFAULT_PYQG_PARAMS.copy()
-        params.update(pyqg_params)
 
-        ds = xr.Dataset()
+        delta = pyqg.QGModel(**pyqg_params).delta
+            
+        datasets = []    
         for run in range(nruns):
-            m = pyqg.QGModel(**params, parameterization=self)
-            m.run()
-            ds = xr.concat((ds, m.to_dataset()), dim='run', combine_attrs='drop_conflicts')
-        return process_dataset(ds, m.delta)
+            datasets.append(run_simulation(pyqg_params, 
+                parameterization = self))
+        return concat_in_run(datasets, delta=delta)
 
-    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine):
+    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine={}):
         '''
         Sample initial conditions from ds and 
         run ensemble of simulations
@@ -144,8 +200,9 @@ class Parameterization(pyqg.QParameterization):
         m_coarse = pyqg.QGModel(**params_coarse)
         m_fine = pyqg.QGModel(**params_fine)
 
-        q = sample(ds)
-        m_param.set_q1q2(*q.astype('float64'))        
+        q = sample(ds).values
+        m_param.set_q1q2(*q.astype('float64'))
+        m_param.run()
 
     def test_offline(self, ds: xr.Dataset, ensemble_size=10):
         '''
@@ -241,7 +298,7 @@ class Parameterization(pyqg.QParameterization):
         preds['CSD_gen_res'] = sp_save(preds[target+'_gen_res'])
 
         # PDF computations
-        time = slice(44,None)
+        time = AVERAGE_SLICE_ANDREW
         Nbins = 50
         for lev in [0,1]:
             arr = preds[target].isel(time=time, lev=lev)
