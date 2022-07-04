@@ -52,6 +52,8 @@ def concat_in_time(datasets):
         elif var.dtype == np.complex128:
             ds = ds.drop_vars(key)
 
+    ds = ds.rename({'p': 'psi'}) # Change for conventional name
+
     return ds
 
 def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
