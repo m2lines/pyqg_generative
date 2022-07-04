@@ -6,7 +6,9 @@ import pyqg
 import numpy as np
 
 DAY = 86400
-DEFAULT_PYQG_PARAMS = dict(nx=64, dt=3600., tmax=90*DAY, tavestart=45*DAY)
+YEAR = 360*DAY
+EDDY_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR}
+JET_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR, 'rek': 7e-08, 'delta': 0.1, 'beta': 1e-11}
 SAMPLE_SLICE = slice(-20, None) # in indices
 AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
 AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
@@ -103,7 +105,7 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
 
     return ds
 
-def run_simulation(pyqg_params=DEFAULT_PYQG_PARAMS, parameterization = None, sample_interval = 30):
+def run_simulation(pyqg_params=EDDY_PARAMS, parameterization = None, sample_interval = 30):
     '''
     Run model m with parameters pyqg_params
     and saves snapshots every sample_interval days
@@ -118,8 +120,10 @@ def run_simulation(pyqg_params=DEFAULT_PYQG_PARAMS, parameterization = None, sam
     snapshots = []
     for t in m.run_with_snapshots(tsnapint = sample_interval*86400):
         snapshots.append(m.to_dataset().copy(deep=True))
-    
-    return concat_in_time(snapshots)
+
+    out = concat_in_time(snapshots)
+    out.attrs['pyqg_params'] = str(pyqg_params)
+    return out
 
 def subgrid_scores(true, mean, gen):
     '''
@@ -179,11 +183,12 @@ class Parameterization(pyqg.QParameterization):
         # Here I assume that there is only one target
         return self.predict(ds)[self.targets[0]].values
 
-    def test_online(self, pyqg_params=DEFAULT_PYQG_PARAMS, nruns=10):
+    def test_online(self, pyqg_params=EDDY_PARAMS, nruns=10):
         '''
         Run ensemble of simulations with parameterization
         and save statistics 
         '''
+        print('Testing online with pyqg_params:', pyqg_params)
 
         delta = pyqg.QGModel(**pyqg_params).delta
             
@@ -331,18 +336,12 @@ class ReferenceModel(Parameterization):
         return m.q*0
 
 if __name__ == '__main__':
-    from tools.cnn_tools import read_dataset
-    test = read_dataset('/scratch/zanna/data/pyqg/data/test/*.nc')
-    transfer = read_dataset('/scratch/zanna/data/pyqg/data/transfer/*.nc')
-
-    params = test.pyqg_params
-    params.update({'nx': 256, 'ny': 256})
-
+    params = EDDY_PARAMS
+    params.update({'nx': 256})
     model = ReferenceModel()
     model.test_online(params).to_netcdf('online_eddy.nc')
 
-    params = transfer.pyqg_params
-    params.update({'nx': 256, 'ny': 256})
-
+    params = JET_PARAMS
+    params.update({'nx': 256})
     model = ReferenceModel()
     model.test_online(params).to_netcdf('online_jet.nc')
