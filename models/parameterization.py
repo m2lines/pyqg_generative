@@ -20,8 +20,19 @@ class noise_time_sampler():
     Class which have memory and implements 
     time smoothing of noise
     '''
-    def AR1(self, noise, nsteps=1):
+    def __init__(self, sampling_type='AR1', nsteps=1):
+        self.sampling_type = sampling_type
+        self.nsteps = nsteps
+
+    def __call__(self, noise):
+        if self.sampling_type == 'AR1':
+            return self.AR1_sampling(noise, self.nsteps)
+        elif self.sampling_type == 'constant':
+            return self.constant_sampling(noise, self.nsteps)
+
+    def AR1_sampling(self, noise, nsteps=1):
         '''
+        Sampling from work https://royalsocietypublishing.org/doi/abs/10.1098/rspa.1995.0126
         Predicts noise using AR1 model
         at the next time step.
         nsteps - decorrelation time in time steps
@@ -35,6 +46,21 @@ class noise_time_sampler():
         else:
             self.noise = noise
         
+        return self.noise
+    
+    def constant_sampling(self, noise, nsteps):
+        '''
+        Sampling from work https://www.sciencedirect.com/science/article/pii/S1463500317300100
+        '''
+        if hasattr(self, 'noise'):
+            if self.counter % nsteps == 0:
+                self.noise = noise
+                self.counter = 1
+            else:
+                self.counter += 1
+        else:
+            self.noise = noise
+            self.counter = 1
         return self.noise
 
 def sample(ds, time=SAMPLE_SLICE, variable='q'):
