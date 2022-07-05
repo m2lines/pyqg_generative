@@ -129,6 +129,49 @@ def run_simulation(pyqg_params=EDDY_PARAMS, parameterization = None, sample_inte
     out.attrs['pyqg_params'] = str(pyqg_params)
     return out
 
+def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax = 90*DAY):
+    '''
+    q - initial condition of PV for highres model in form of 
+    xarray
+    pyqg_low - low resolution model parameters
+    pyqg_high - high resolution model parameters
+    Output sampling is each 30 days
+    Tmax - integration time
+    '''
+    assert pyqg_low['dt'] == pyqg_high['dt']
+    assert q.x.size == pyqg_high['nx']
+
+    def filter(x):
+        ratio = int(highres.nx / lowres.nx)
+        return x.coarsen({'x': ratio, 'y': ratio}).mean().squeeze()
+
+    lowres = pyqg.QGModel(**pyqg_low)
+    highres = pyqg.QGModel(**pyqg_high)
+
+    highres.set_q1q2(*q.values.astype('float64'))
+    lowres.set_q1q2(*filter(q).values.astype('float64'))
+
+    lowres_snapshots = []
+    highres_snapshots = []
+
+    Nt = int(Tmax / lowres.dt)
+    for nt in range(Nt):
+        lowres._step_forward()
+        highres._step_forward()
+        if lowres.t % (30*DAY) < lowres.dt:
+            print(lowres.t / DAY)
+            lowres_snapshots.append(lowres.to_dataset()[['q', 'u', 'v']].copy())
+            highres_snapshots.append(highres.to_dataset()[['q', 'u', 'v']].copy())
+
+    xr_lowres = xr.concat(lowres_snapshots, dim='time')
+    xr_highres = xr.concat(highres_snapshots, dim='time')
+
+    out = xr_lowres
+    for v in ['q', 'u', 'v']:
+        out[v+'_highres'] = filter(xr_highres[v]).copy()
+
+    return out
+
 def subgrid_scores(true, mean, gen):
     '''
     Compute scalar metrics for three components of subgrid forcing:
@@ -203,10 +246,15 @@ class Parameterization(pyqg.QParameterization):
                 parameterization = self))
         return concat_in_run(datasets, delta=delta)
 
-    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine={}):
+    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine={}, ensemble_size=10):
         '''
-        Sample initial conditions from ds and 
-        run ensemble of simulations
+        ds - dataset with high-res fields
+        Initial conditions are sampled from this dataset.
+        Than two models are integrated:
+        - High-res model
+        - Low-res model with coarsened initial condition
+        Parameterization assumed to be stochastic, and 
+        ensemble of simulations from the same condition is performed
         '''
         m_param = pyqg.QGModel(**params_coarse, parameterization=self)
         m_coarse = pyqg.QGModel(**params_coarse)
