@@ -15,6 +15,28 @@ SAMPLE_SLICE = slice(-40, None) # in indices
 AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
 AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
 
+class noise_time_sampler():
+    '''
+    Class which have memory and implements 
+    time smoothing of noise
+    '''
+    def AR1(self, noise, nsteps=1):
+        '''
+        Predicts noise using AR1 model
+        at the next time step.
+        nsteps - decorrelation time in time steps
+        If nsteps = 1, AR1 is equal to white noise in time sampling
+        in case of first call, self.noise is initialized with input noise
+        '''
+        a = 1 - 1/nsteps
+        b = (1/nsteps * (2 - 1/nsteps))**0.5
+        if hasattr(self, 'noise'):
+            self.noise = a * self.noise + b * noise
+        else:
+            self.noise = noise
+        
+        return self.noise
+
 def sample(ds, time=SAMPLE_SLICE, variable='q'):
     '''
     Recieves xr.Dataset and returns
