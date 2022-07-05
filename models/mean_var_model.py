@@ -60,6 +60,9 @@ class MeanVarModel(Parameterization):
             x_scale.normalize(X_test),  y_scale.normalize_var(rsq_test),
             num_epochs, batch_size, learning_rate)
     
+    def nst_ch(self):
+        return 2*len(self.targets)
+
     def predict(self, ds: xr.Dataset, noise=None):
         X = self.x_scale.direct(extract_arrays(ds, self.inputs))
         mean = self.y_scale.denormalize(

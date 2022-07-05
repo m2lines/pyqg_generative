@@ -1,6 +1,7 @@
 import sys; sys.path.insert(0, '../')
 from tools.computational_tools import PDF_histogram
 from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
+from tools.cnn_tools import array_to_dataset
 import pyqg_parameterization_benchmarks as ppb
 import xarray as xr
 import pyqg
@@ -207,25 +208,33 @@ def subgrid_scores(true, mean, gen):
 
     sp = spectrum(time=slice(None,None)) # power spectrum for full time slice
 
-    ds['sp_true'] = sp(true)
-    ds['sp_gen'] = sp(gen)
+    ds['sp_true'] = sp(true).astype('float64')
+    ds['sp_gen'] = sp(gen).astype('float64')
     ds['R2_total'] = R2(ds.sp_gen, ds.sp_true)
     
-    ds['sp_true_res'] = sp(true-mean)
-    ds['sp_gen_res'] = sp(gen-mean)
-
+    ds['sp_true_res'] = sp(true-mean).astype('float64')
+    ds['sp_gen_res'] = sp(gen-mean).astype('float64')
     ds['R2_residual'] = R2(ds.sp_gen_res, ds.sp_true_res)
 
     return ds
 
 class Parameterization(pyqg.QParameterization):
-    def predict(self, ds):
+    def predict(self, ds, noise):
         '''
         ds - dataset having dimensions (lev, y, x);
         Additional dimensions run and time are arbitrary
+        noise - input numpy array with noise of pattern:
+        n_stoch_channels x Ny x Nx
         ds should contain input fields: self.inputs
         Output: dataset with fields: self.targets
         Additionally: mean and var are returned!
+        '''
+        raise NotImplementedError
+    
+    def nst_ch(self):
+        '''
+        Defines the number of stochastic channels
+        used in online simulation
         '''
         raise NotImplementedError
     
@@ -239,8 +248,10 @@ class Parameterization(pyqg.QParameterization):
         for var in self.inputs:
             ds[var] = xr.DataArray(m.__getattribute__(var), dims=('lev', 'y', 'x'))
 
+        noise = np.random.randn(self.nst_ch(), m.ny, m.nx)[np.newaxis, :]
+
         # Here I assume that there is only one target
-        return self.predict(ds)[self.targets[0]].values
+        return self.predict(ds, noise)[self.targets[0]].values
 
     def test_online(self, pyqg_params=EDDY_PARAMS, nruns=10):
         '''
@@ -425,11 +436,24 @@ class TrivialStochastic(Parameterization):
     def __init__(self, amp=1):
         super().__init__()
         self.amp = amp
+        self.inputs = ['q']
+        self.targets = ['q_forcing_advection']
 
-    def __call__(self, m):
-        eps = np.random.randn(*m.q.shape)
-        std = np.array([3.6275900e-12, 7.0375224e-14])[:, np.newaxis, np.newaxis]
-        return eps * std * self.amp
+    def predict(self, ds, noise=None):
+        if noise is None:
+            noise = np.random.randn(ds.q.shape[0]*ds.q.shape[1], *ds.q.shape[2:])
+        std = 3e-12
+        Y = self.amp * std * noise
+        mean = 0*Y
+        var = 0*Y
+        return xr.merge((
+            array_to_dataset(ds, Y, self.targets),
+            array_to_dataset(ds, mean, self.targets, postfix='_mean'),
+            array_to_dataset(ds, var, self.targets, postfix='_var')
+        ))
+        
+    def nst_ch(self):
+        return 2
 
 if __name__ == '__main__':
     params = EDDY_PARAMS
