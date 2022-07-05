@@ -9,7 +9,7 @@ DAY = 86400
 YEAR = 360*DAY
 EDDY_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR}
 JET_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR, 'rek': 7e-08, 'delta': 0.1, 'beta': 1e-11}
-SAMPLE_SLICE = slice(-20, None) # in indices
+SAMPLE_SLICE = slice(-40, None) # in indices
 AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
 AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
 
@@ -129,46 +129,56 @@ def run_simulation(pyqg_params=EDDY_PARAMS, parameterization = None, sample_inte
     out.attrs['pyqg_params'] = str(pyqg_params)
     return out
 
-def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax = 90*DAY):
+def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY, 
+    output_sampling=1*DAY, ensemble_size=50):
     '''
     q - initial condition of PV for highres model in form of 
     xarray
     pyqg_low - low resolution model parameters
     pyqg_high - high resolution model parameters
-    Output sampling is each 30 days
     Tmax - integration time
+    Output sampling - how often save snapshots
+    ensemble_size - number of stochastic runs from the same initial condition
     '''
     assert pyqg_low['dt'] == pyqg_high['dt']
     assert q.x.size == pyqg_high['nx']
 
     def filter(x):
-        ratio = int(highres.nx / lowres.nx)
+        ratio = int(pyqg_high['nx'] / pyqg_low['nx'])
         return x.coarsen({'x': ratio, 'y': ratio}).mean().squeeze()
 
-    lowres = pyqg.QGModel(**pyqg_low)
-    highres = pyqg.QGModel(**pyqg_high)
+    lowres_models = [pyqg.QGModel(**pyqg_low, log_level=0) for _ in range(ensemble_size)]
+    highres = pyqg.QGModel(**pyqg_high, log_level=0)
 
     highres.set_q1q2(*q.values.astype('float64'))
-    lowres.set_q1q2(*filter(q).values.astype('float64'))
+    for model in lowres_models:
+        model.set_q1q2(*filter(q).values.astype('float64'))
 
     lowres_snapshots = []
     highres_snapshots = []
 
-    Nt = int(Tmax / lowres.dt)
+    Nt = int(Tmax / highres.dt)
     for nt in range(Nt):
-        lowres._step_forward()
+        for model in lowres_models:
+            model._step_forward()
         highres._step_forward()
-        if lowres.t % (30*DAY) < lowres.dt:
-            print(lowres.t / DAY)
-            lowres_snapshots.append(lowres.to_dataset()[['q', 'u', 'v']].copy())
-            highres_snapshots.append(highres.to_dataset()[['q', 'u', 'v']].copy())
+        if highres.t % (output_sampling) < highres.dt:
+            snapshot = []
+            for model in lowres_models:
+                snapshot.append(model.to_dataset().q.copy())
+            lowres_snapshots.append(xr.concat(snapshot, dim='ensemble'))
+            highres_snapshots.append(filter(highres.to_dataset().q).copy())
 
-    xr_lowres = xr.concat(lowres_snapshots, dim='time')
-    xr_highres = xr.concat(highres_snapshots, dim='time')
+    q_lowres = xr.concat(lowres_snapshots, dim='time')
+    q_highres = xr.concat(highres_snapshots, dim='time')
 
-    out = xr_lowres
-    for v in ['q', 'u', 'v']:
-        out[v+'_highres'] = filter(xr_highres[v]).copy()
+    out = xr.Dataset()
+    out['q_mean'] = q_lowres.mean(dim='ensemble').copy()
+    out['q_gen'] = q_lowres.isel(ensemble=0).copy()
+    out['q_true'] = q_highres.copy()
+
+    del q_lowres
+    del q_highres
 
     return out
 
@@ -184,27 +194,28 @@ def subgrid_scores(true, mean, gen):
 
     Result is score, i.e. 1-mse/normalization
 
-    Here we assuma that dataset has dimensions run x time x lev x Ny x Nx
+    Here we assume that dataset has dimensions run x time x lev x Ny x Nx
     '''
     def R2(x, x_true):
         dims = [d for d in x.dims if d != 'lev']
         return float((1 - ((x-x_true)**2).mean(dims) / (x_true).var(dims)).mean())
     
+    ds = xr.Dataset()
     # first compute R2 for each layer, and after that normalize
-    R2_mean = R2(mean, true)
+    ds['R2_mean'] = R2(mean, true)
 
     sp = spectrum(time=slice(None,None)) # power spectrum for full time slice
 
-    sp_true = sp(true)
-    sp_gen = sp(gen)
-    R2_total = R2(sp_gen, sp_true)
+    ds['sp_true'] = sp(true)
+    ds['sp_gen'] = sp(gen)
+    ds['R2_total'] = R2(ds.sp_gen, ds.sp_true)
     
-    sp_true_res = sp(true-mean)
-    sp_gen_res = sp(gen-mean)
+    ds['sp_true_res'] = sp(true-mean)
+    ds['sp_gen_res'] = sp(gen-mean)
 
-    R2_residual = R2(sp_gen_res, sp_true_res)
+    ds['R2_residual'] = R2(ds.sp_gen_res, ds.sp_true_res)
 
-    return R2_mean, R2_total, R2_residual
+    return ds
 
 class Parameterization(pyqg.QParameterization):
     def predict(self, ds):
@@ -246,23 +257,44 @@ class Parameterization(pyqg.QParameterization):
                 parameterization = self))
         return concat_in_run(datasets, delta=delta)
 
-    def test_ensemble(self, ds: xr.Dataset, params_coarse, params_fine={}, ensemble_size=10):
+    def test_ensemble(self, ds: xr.Dataset, pyqg_params,
+        Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=50, nruns=10):
         '''
         ds - dataset with high-res fields
         Initial conditions are sampled from this dataset.
-        Than two models are integrated:
-        - High-res model
-        - Low-res model with coarsened initial condition
-        Parameterization assumed to be stochastic, and 
-        ensemble of simulations from the same condition is performed
+        pyqg_params - low resolution models parameters
+        Tmax - integration time
+        Output sampling - how often save snapshots
+        ensemble_size - number of stochastic runs from the same initial condition
+        nruns - number of different initial conditions
+        Total computational cost for lowres model in days:
+        Tmax * ensemble_size * nruns.
+        For default parameters, slightly more complex than
+        test_online.
         '''
-        m_param = pyqg.QGModel(**params_coarse, parameterization=self)
-        m_coarse = pyqg.QGModel(**params_coarse)
-        m_fine = pyqg.QGModel(**params_fine)
+        pyqg_low = pyqg_params.copy()
+        pyqg_low['parameterization'] = self
 
-        q = sample(ds).values
-        m_param.set_q1q2(*q.astype('float64'))
-        m_param.run()
+        pyqg_high = pyqg_params.copy()
+        pyqg_high['nx'] = ds.x.size
+
+        snapshots = []
+        for run in range(nruns):
+            print('run of ensemble =', run)
+            q = sample(ds)
+            snapshots.append(run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
+                Tmax, output_sampling, ensemble_size))
+
+        out = xr.concat(snapshots, dim='run')
+        
+        s_scores = []
+        for t in out.time:
+            d = out.sel(time=slice(t,t))
+            s_scores.append(subgrid_scores(d.q_true, d.q_mean, d.q_gen))
+            
+        out.update(xr.concat(s_scores, dim='time'))
+
+        return out
 
     def test_offline(self, ds: xr.Dataset, ensemble_size=10):
         '''
@@ -287,8 +319,9 @@ class Parameterization(pyqg.QParameterization):
         preds[target+'_gen_res'] = preds[target+'_gen'] - preds[target+'_mean']
 
         # subgrid scores
-        preds['R2_mean'], preds['R2_total'], preds['R2_residual'] = \
-            subgrid_scores(ds[target], preds[target+'_mean'], preds[target+'_gen'])
+        preds.update(
+            subgrid_scores(ds[target], preds[target+'_mean'], 
+                preds[target+'_gen'])['R2_mean', 'R2_total', 'R2_residual'])
 
         # Andrew metrics
         def dims_except(*dims):
@@ -383,10 +416,18 @@ class Parameterization(pyqg.QParameterization):
         return preds
 
 class ReferenceModel(Parameterization):
-    def __init_(self):
-        super().__init__()
     def __call__(self, m):
         return m.q*0
+
+class TrivialStochastic(Parameterization):
+    def __init__(self, amp=1):
+        super().__init__()
+        self.amp = amp
+
+    def __call__(self, m):
+        eps = np.random.randn(*m.q.shape)
+        std = np.array([3.6275900e-12, 7.0375224e-14])[:, np.newaxis, np.newaxis]
+        return eps * std * self.amp
 
 if __name__ == '__main__':
     params = EDDY_PARAMS
