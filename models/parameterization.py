@@ -256,7 +256,7 @@ class Parameterization(pyqg.QParameterization):
             print('run = ', run)
             datasets.append(run_simulation(pyqg_params, 
                 parameterization = self))
-        return concat_in_run(datasets, delta=delta)
+        return concat_in_run(datasets, delta=delta).astype('float32')
 
     def test_ensemble(self, ds: xr.Dataset, pyqg_params,
         Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=50, nruns=10):
@@ -322,8 +322,8 @@ class Parameterization(pyqg.QParameterization):
 
         # subgrid scores
         preds.update(
-            subgrid_scores(ds[target], preds[target+'_mean'], 
-                preds[target+'_gen'])['R2_mean', 'R2_total', 'R2_residual'])
+            subgrid_scores(preds[target], preds[target+'_mean'], 
+                preds[target+'_gen'])[['R2_mean', 'R2_total', 'R2_residual']])
 
         # Andrew metrics
         def dims_except(*dims):
@@ -415,7 +415,7 @@ class Parameterization(pyqg.QParameterization):
                 preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
                     attrs={'long_name': 'subgrid forcing residual PDF'})
 
-        return preds
+        return preds.astype('float32')
 
 class ReferenceModel(Parameterization):
     def __call__(self, m):
