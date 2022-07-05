@@ -1,6 +1,7 @@
 import sys; sys.path.insert(0, '../')
 from tools.computational_tools import PDF_histogram
 from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
+import pyqg_parameterization_benchmarks as ppb
 import xarray as xr
 import pyqg
 import numpy as np
@@ -143,16 +144,16 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY,
     assert pyqg_low['dt'] == pyqg_high['dt']
     assert q.x.size == pyqg_high['nx']
 
-    def filter(x):
-        ratio = int(pyqg_high['nx'] / pyqg_low['nx'])
-        return x.coarsen({'x': ratio, 'y': ratio}).mean().squeeze()
+    def filter(model):
+        op = ppb.coarsening_ops.Operator1(model, pyqg_low['nx'])        
+        return xr.DataArray(op.m2.q, dims=['lev', 'y', 'x'] )
 
     lowres_models = [pyqg.QGModel(**pyqg_low, log_level=0) for _ in range(ensemble_size)]
     highres = pyqg.QGModel(**pyqg_high, log_level=0)
 
     highres.set_q1q2(*q.values.astype('float64'))
     for model in lowres_models:
-        model.set_q1q2(*filter(q).values.astype('float64'))
+        model.set_q1q2(*filter(highres).values)
 
     lowres_snapshots = []
     highres_snapshots = []
@@ -167,7 +168,7 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY,
             for model in lowres_models:
                 snapshot.append(model.to_dataset().q.copy())
             lowres_snapshots.append(xr.concat(snapshot, dim='ensemble'))
-            highres_snapshots.append(filter(highres.to_dataset().q).copy())
+            highres_snapshots.append(filter(highres))
 
     q_lowres = xr.concat(lowres_snapshots, dim='time')
     q_highres = xr.concat(highres_snapshots, dim='time')
@@ -180,7 +181,7 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY,
     del q_lowres
     del q_highres
 
-    return out
+    return out.astype('float32')
 
 def subgrid_scores(true, mean, gen):
     '''
@@ -293,8 +294,9 @@ class Parameterization(pyqg.QParameterization):
             s_scores.append(subgrid_scores(d.q_true, d.q_mean, d.q_gen))
             
         out.update(xr.concat(s_scores, dim='time'))
-
-        return out
+        out.attrs['pyqg_params'] = str(pyqg_params)
+        
+        return out.astype('float32')
 
     def test_offline(self, ds: xr.Dataset, ensemble_size=10):
         '''
