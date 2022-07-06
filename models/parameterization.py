@@ -45,23 +45,32 @@ class noise_time_sampler():
             self.noise = a * self.noise + b * noise
         else:
             self.noise = noise
-        
-        return self.noise
+        return self.noise, True
     
     def constant_sampling(self, noise, nsteps):
         '''
         Sampling from work https://www.sciencedirect.com/science/article/pii/S1463500317300100
         '''
+        update = True
         if hasattr(self, 'noise'):
             if self.counter % nsteps == 0:
                 self.noise = noise
                 self.counter = 1
             else:
                 self.counter += 1
+                update = False
         else:
             self.noise = noise
             self.counter = 1
-        return self.noise
+        return self.noise, update
+
+class stochastic_QGModel(pyqg.QGModel):
+    '''
+    Accumulate noise for correlated SGS closures
+    '''
+    def __init__(self, pyqg_params, sampling_type='AR1', nsteps=1):
+        super().__init__(**pyqg_params, log_level=0)
+        self.noise_sampler = noise_time_sampler(sampling_type, nsteps)
 
 def sample(ds, time=SAMPLE_SLICE, variable='q'):
     '''
@@ -159,27 +168,27 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
 
     return ds
 
-def run_simulation(pyqg_params=EDDY_PARAMS, parameterization = None, sample_interval = 30):
+def run_simulation(pyqg_params, sampling_type, nsteps,
+    sample_interval):
     '''
     Run model m with parameters pyqg_params
-    and saves snapshots every sample_interval days
+    and saves snapshots every sample_interval seconds
     Returns xarray.Dataset with snapshots and 
     averaged statistics
     '''
-    params = pyqg_params.copy()
-    if parameterization is not None:
-        params.update(parameterization = parameterization)
-    m = pyqg.QGModel(**params)
+    m = stochastic_QGModel(pyqg_params, sampling_type, nsteps)
     
     snapshots = []
-    for t in m.run_with_snapshots(tsnapint = sample_interval*86400):
+    for t in m.run_with_snapshots(tsnapint = sample_interval):
         snapshots.append(m.to_dataset().copy(deep=True))
+        print(t)
 
     out = concat_in_time(snapshots)
     out.attrs['pyqg_params'] = str(pyqg_params)
     return out
 
-def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY, 
+def run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
+    sampling_type, nsteps, Tmax=90*DAY, 
     output_sampling=1*DAY, ensemble_size=50):
     '''
     q - initial condition of PV for highres model in form of 
@@ -197,7 +206,7 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high, Tmax=90*DAY,
         op = ppb.coarsening_ops.Operator1(model, pyqg_low['nx'])        
         return xr.DataArray(op.m2.q, dims=['lev', 'y', 'x'] )
 
-    lowres_models = [pyqg.QGModel(**pyqg_low, log_level=0) for _ in range(ensemble_size)]
+    lowres_models = [stochastic_QGModel(pyqg_low, sampling_type, nsteps) for _ in range(ensemble_size)]
     highres = pyqg.QGModel(**pyqg_high, log_level=0)
 
     highres.set_q1q2(*q.values.astype('float64'))
@@ -286,22 +295,26 @@ class Parameterization(pyqg.QParameterization):
         '''
         raise NotImplementedError
     
-    def __call__(self, m):
+    def __call__(self, m: stochastic_QGModel):
         '''
         m - instance of pyqg.QGModel
         return numpy array with prediction of 
         PV forcing
         '''
-        ds = xr.Dataset()
-        for var in self.inputs:
-            ds[var] = xr.DataArray(m.__getattribute__(var), dims=('lev', 'y', 'x'))
-
+        # generate new portion of noise
         noise = np.random.randn(self.nst_ch(), m.ny, m.nx)[np.newaxis, :]
+        noise, update = m.noise_sampler(noise)
 
-        # Here I assume that there is only one target
-        return self.predict(ds, noise)[self.targets[0]].values
+        if update:
+            ds = xr.Dataset()
+            for var in self.inputs:
+                ds[var] = xr.DataArray(m.__getattribute__(var), dims=('lev', 'y', 'x'))
+                m.return_data = self.predict(ds, noise)[self.targets[0]].values
+        
+        return m.return_data
 
-    def test_online(self, pyqg_params=EDDY_PARAMS, nruns=10):
+    def test_online(self, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
+        nruns=10, sample_interval=30*DAY):
         '''
         Run ensemble of simulations with parameterization
         and save statistics 
@@ -309,15 +322,21 @@ class Parameterization(pyqg.QParameterization):
         print('Testing online with pyqg_params:', pyqg_params)
 
         delta = pyqg.QGModel(**pyqg_params).delta
+
+        params = pyqg_params.copy()
+        params['parameterization'] = self
             
         datasets = []    
         for run in range(nruns):
             print('run = ', run)
-            datasets.append(run_simulation(pyqg_params, 
-                parameterization = self))
-        return concat_in_run(datasets, delta=delta).astype('float32')
+            datasets.append(run_simulation(params, sampling_type, nsteps,
+                sample_interval))
+        
+        out = concat_in_run(datasets, delta=delta).astype('float32')
+        out.attrs['pyqg_params'] = pyqg_params
+        return out
 
-    def test_ensemble(self, ds: xr.Dataset, pyqg_params,
+    def test_ensemble(self, ds: xr.Dataset, pyqg_params, sampling_type='AR1', nsteps=1, 
         Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=50, nruns=10):
         '''
         ds - dataset with high-res fields
@@ -343,7 +362,7 @@ class Parameterization(pyqg.QParameterization):
             print('run of ensemble =', run)
             q = sample(ds)
             snapshots.append(run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
-                Tmax, output_sampling, ensemble_size))
+                sampling_type, nsteps, Tmax, output_sampling, ensemble_size))
 
         out = xr.concat(snapshots, dim='run')
         
