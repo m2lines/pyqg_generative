@@ -337,7 +337,7 @@ class Parameterization(pyqg.QParameterization):
                 sample_interval))
         
         out = concat_in_run(datasets, delta=delta).astype('float32')
-        out.attrs['pyqg_params'] = pyqg_params
+        out.attrs['pyqg_params'] = str(pyqg_params)
         return out
 
     @timer

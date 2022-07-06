@@ -3,7 +3,7 @@ import xarray as xr
 import argparse
 import json
 
-from pyqg_generative.models.mean_var_model import MeanVarModel
+from pyqg_generative.models.mean_var_model import MeanVarModel, OLSModel
 from pyqg_generative.models.parameterization import EDDY_PARAMS, JET_PARAMS, ReferenceModel, TrivialStochastic
 import pyqg_subgrid_experiments as pse
 
@@ -35,6 +35,8 @@ elif args.model == 'MeanVarModel':
     model = MeanVarModel(inputs, targets)
 elif args.model == 'lowres':
     model = ReferenceModel(inputs, targets)
+elif args.model == 'OLSModel':
+    model = OLSModel(inputs, targets)
 
 model.fit(train, test)
 torch.save(model, 'net_state')
@@ -42,7 +44,13 @@ torch.save(model, 'net_state')
 model.test_offline(test).to_netcdf('offline_test.nc')
 model.test_offline(transfer).to_netcdf('offline_transfer.nc')
 
-if args.model != 'lowres':
+if args.model in ['lowres', 'OLSModel']:
+    model.test_ensemble(test_highres, EDDY_PARAMS).to_netcdf('ensemble_test.nc')
+    model.test_ensemble(transfer_highres, JET_PARAMS).to_netcdf('ensemble_transfer.nc')
+
+    model.test_online(EDDY_PARAMS).to_netcdf('online_test.nc')
+    model.test_online(JET_PARAMS).to_netcdf('online_transfer.nc')
+else:
     for sampling in ['AR1', 'constant']:
         for nsteps in [1, 12, 24, 48]:
             model.test_ensemble(test_highres, EDDY_PARAMS, 
@@ -54,9 +62,3 @@ if args.model != 'lowres':
                 sampling_type=sampling, nsteps=nsteps).to_netcdf('online_test_'+sampling+'_'+str(nsteps)+'.nc')
             model.test_online(JET_PARAMS, 
                 sampling_type=sampling, nsteps=nsteps).to_netcdf('online_transfer_'+sampling+'_'+str(nsteps)+'.nc')
-else:
-    model.test_ensemble(test_highres, EDDY_PARAMS).to_netcdf('ensemble_test.nc')
-    model.test_ensemble(transfer_highres, JET_PARAMS).to_netcdf('ensemble_transfer.nc')
-
-    model.test_online(EDDY_PARAMS).to_netcdf('online_test.nc')
-    model.test_online(JET_PARAMS).to_netcdf('online_transfer.nc')

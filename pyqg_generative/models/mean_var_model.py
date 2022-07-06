@@ -79,3 +79,15 @@ class MeanVarModel(Parameterization):
             array_to_dataset(ds, mean, self.targets, postfix='_mean'),
             array_to_dataset(ds, var, self.targets, postfix='_var')
         ))
+
+class OLSModel(MeanVarModel):
+    def predict(self, ds: xr.Dataset, noise=None):
+        X = self.x_scale.direct(extract_arrays(ds, self.inputs))
+        mean = self.y_scale.denormalize(
+            apply_function(self.net_mean, self.net_mean.forward, X))
+        
+        return xr.merge((
+            array_to_dataset(ds, mean, self.targets),
+            array_to_dataset(ds, mean, self.targets, postfix='_mean'),
+            array_to_dataset(ds, mean*0, self.targets, postfix='_var')
+        ))
