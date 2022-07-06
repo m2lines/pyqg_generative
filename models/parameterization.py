@@ -305,11 +305,13 @@ class Parameterization(pyqg.QParameterization):
         noise = np.random.randn(self.nst_ch(), m.ny, m.nx)[np.newaxis, :]
         noise, update = m.noise_sampler(noise)
 
+        demean = lambda x: x - x.mean(axis=(1,2), keepdims=True)
+
         if update:
             ds = xr.Dataset()
             for var in self.inputs:
                 ds[var] = xr.DataArray(m.__getattribute__(var), dims=('lev', 'y', 'x'))
-                m.return_data = self.predict(ds, noise)[self.targets[0]].values
+                m.return_data = demean(self.predict(ds, noise)[self.targets[0]].values)
         
         return m.return_data
 
