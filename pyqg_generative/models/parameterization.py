@@ -318,7 +318,7 @@ class Parameterization(pyqg.QParameterization):
 
     @timer
     def test_online(self, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
-        nruns=10, sample_interval=30*DAY):
+        nruns=5, sample_interval=30*DAY):
         '''
         Run ensemble of simulations with parameterization
         and save statistics 
@@ -342,7 +342,7 @@ class Parameterization(pyqg.QParameterization):
 
     @timer
     def test_ensemble(self, ds: xr.Dataset, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
-        Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=50, nruns=10):
+        Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=16, nruns=16):
         '''
         ds - dataset with high-res fields
         Initial conditions are sampled from this dataset.
@@ -502,15 +502,33 @@ class Parameterization(pyqg.QParameterization):
         return preds.astype('float32')
 
 class ReferenceModel(Parameterization):
+    def __init__(self, inputs, targets):
+        super().__init__()
+        self.inputs = inputs
+        self.targets = targets
+    
     def __call__(self, m):
         return m.q*0
+    
+    def predict(self, ds, noise=None):
+        out = xr.Dataset()
+        out['q_forcing_advection'] = ds['q'] * 0
+        out['q_forcing_advection_mean'] = ds['q'] * 0
+        out['q_forcing_advection_var'] = ds['q'] * 0
+        return out
+
+    def nst_ch(self):
+            return 2    
+
+    def fit(*args, **kw):
+        pass
 
 class TrivialStochastic(Parameterization):
-    def __init__(self, amp=1):
+    def __init__(self, inputs, targets, amp=1):
         super().__init__()
         self.amp = amp
-        self.inputs = ['q']
-        self.targets = ['q_forcing_advection']
+        self.inputs = inputs
+        self.targets = targets
 
     def predict(self, ds, noise=None):
         if noise is None:
@@ -524,6 +542,9 @@ class TrivialStochastic(Parameterization):
             array_to_dataset(ds, mean, self.targets, postfix='_mean'),
             array_to_dataset(ds, var, self.targets, postfix='_var')
         ))
+        
+    def fit(*args, **kw):
+        pass
         
     def nst_ch(self):
         return 2
