@@ -1,12 +1,10 @@
-import sys; sys.path.insert(0, '../')
-
 import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
-from tools.cnn_tools import *
-from models.parameterization import Parameterization
+from pyqg_generative.tools.cnn_tools import *
+from pyqg_generative.models.parameterization import Parameterization
 
 class VarCNN(AndrewCNN):
     def forward(self, x):

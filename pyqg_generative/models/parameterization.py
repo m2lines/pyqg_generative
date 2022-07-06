@@ -1,7 +1,7 @@
-import sys; sys.path.insert(0, '../')
-from tools.computational_tools import PDF_histogram
-from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
-from tools.cnn_tools import array_to_dataset, timer
+from pyqg_generative.tools.computational_tools import PDF_histogram
+from pyqg_generative.tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
+from pyqg_generative.tools.cnn_tools import array_to_dataset, timer
+
 import pyqg_parameterization_benchmarks as ppb
 import xarray as xr
 import pyqg
