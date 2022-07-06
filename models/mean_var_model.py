@@ -30,6 +30,7 @@ class MeanVarModel(Parameterization):
         self.net_mean = AndrewCNN(n_in, n_out)
         self.net_var = VarCNN(n_in, n_out)
 
+    @timer
     def fit(self, ds_train: xr.Dataset, ds_test: xr.Dataset, 
             num_epochs=50, batch_size=64, learning_rate=0.001):
         

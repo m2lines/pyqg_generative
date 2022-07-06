@@ -1,7 +1,7 @@
 import sys; sys.path.insert(0, '../')
 from tools.computational_tools import PDF_histogram
 from tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
-from tools.cnn_tools import array_to_dataset
+from tools.cnn_tools import array_to_dataset, timer
 import pyqg_parameterization_benchmarks as ppb
 import xarray as xr
 import pyqg
@@ -168,6 +168,7 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
 
     return ds
 
+@timer
 def run_simulation(pyqg_params, sampling_type, nsteps,
     sample_interval):
     '''
@@ -181,12 +182,12 @@ def run_simulation(pyqg_params, sampling_type, nsteps,
     snapshots = []
     for t in m.run_with_snapshots(tsnapint = sample_interval):
         snapshots.append(m.to_dataset().copy(deep=True))
-        print(t)
 
     out = concat_in_time(snapshots)
     out.attrs['pyqg_params'] = str(pyqg_params)
     return out
 
+@timer
 def run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
     sampling_type, nsteps, Tmax=90*DAY, 
     output_sampling=1*DAY, ensemble_size=50):
@@ -315,6 +316,7 @@ class Parameterization(pyqg.QParameterization):
         
         return m.return_data
 
+    @timer
     def test_online(self, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
         nruns=10, sample_interval=30*DAY):
         '''
@@ -338,7 +340,8 @@ class Parameterization(pyqg.QParameterization):
         out.attrs['pyqg_params'] = pyqg_params
         return out
 
-    def test_ensemble(self, ds: xr.Dataset, pyqg_params, sampling_type='AR1', nsteps=1, 
+    @timer
+    def test_ensemble(self, ds: xr.Dataset, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
         Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=50, nruns=10):
         '''
         ds - dataset with high-res fields
@@ -378,6 +381,7 @@ class Parameterization(pyqg.QParameterization):
         
         return out.astype('float32')
 
+    @timer
     def test_offline(self, ds: xr.Dataset, ensemble_size=10):
         '''
         Compute predictions of subgrid forces 
