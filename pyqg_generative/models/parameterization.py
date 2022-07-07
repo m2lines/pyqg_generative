@@ -484,7 +484,7 @@ class Parameterization(pyqg.QParameterization):
             mean, std = arr.mean(), arr.std()
             xmin = float(mean - 4*std); xmax = float(mean + 4*std)
             for suffix in ['', '_gen', '_mean']:
-                array = preds[target].isel(time=time, lev=lev).values.ravel()
+                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
                 preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
                     attrs={'long_name': 'subgrid forcing PDF'})
@@ -494,7 +494,7 @@ class Parameterization(pyqg.QParameterization):
             mean, std = arr.mean(), arr.std()
             xmin = float(mean - 4*std); xmax = float(mean + 4*std)
             for suffix in ['_res', '_gen_res']:
-                array = preds[target].isel(time=time, lev=lev).values.ravel()
+                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
                 preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
                     attrs={'long_name': 'subgrid forcing residual PDF'})
