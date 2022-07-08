@@ -334,7 +334,7 @@ class Parameterization(pyqg.QParameterization):
 
     @timer
     def test_ensemble(self, ds: xr.Dataset, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
-        Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=16, nruns=16):
+        Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=15, nruns=15):
         '''
         ds - dataset with high-res fields
         Initial conditions are sampled from this dataset.
