@@ -3,6 +3,7 @@ from pyqg_generative.tools.spectral_tools import calc_ispec, xarray_to_model, co
 from pyqg_generative.tools.cnn_tools import array_to_dataset, timer, init_seeds
 
 import pyqg_parameterization_benchmarks as ppb
+from torch.multiprocessing import Pool, set_start_method
 import xarray as xr
 import pyqg
 import numpy as np
@@ -185,10 +186,9 @@ def run_simulation(pyqg_params, sampling_type, nsteps,
 
     return concat_in_time(snapshots)
 
-@timer
 def run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
-    sampling_type, nsteps, Tmax=90*DAY, 
-    output_sampling=1*DAY, ensemble_size=50):
+    sampling_type, nsteps,
+    output_sampling=1*DAY, ensemble_size=16):
     '''
     q - initial condition of PV for highres model in form of 
     xarray
@@ -198,7 +198,6 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high,
     Output sampling - how often save snapshots
     ensemble_size - number of stochastic runs from the same initial condition
     '''
-    assert pyqg_low['dt'] == pyqg_high['dt']
     assert q.x.size == pyqg_high['nx']
 
     def filter(model):
@@ -215,20 +214,17 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high,
     lowres_snapshots = []
     highres_snapshots = []
 
-    Nt = int(Tmax / highres.dt)
-    for nt in range(Nt):
-        for model in lowres_models:
-            model._step_forward()
-        highres._step_forward()
-        if highres.t % (output_sampling) < highres.dt:
-            snapshot = []
-            for model in lowres_models:
-                snapshot.append(model.to_dataset().q.copy())
-            lowres_snapshots.append(xr.concat(snapshot, dim='ensemble'))
-            highres_snapshots.append(filter(highres))
-
-    q_lowres = xr.concat(lowres_snapshots, dim='time')
+    for t in highres.run_with_snapshots(tsnapint = output_sampling):
+        highres_snapshots.append(filter(highres))
     q_highres = xr.concat(highres_snapshots, dim='time')
+
+    model_snapshots = []
+    for model in lowres_models:
+        lowres_snapshots = []
+        for t in model.run_with_snapshots(tsnapint = output_sampling):
+            lowres_snapshots.append(model.to_dataset().q.copy(deep=True))
+        model_snapshots.append(xr.concat(lowres_snapshots, dim='time'))
+    q_lowres = xr.concat(model_snapshots, dim='ensemble')
 
     out = xr.Dataset()
     out['q_mean'] = q_lowres.mean(dim='ensemble').copy()
@@ -318,7 +314,6 @@ class Parameterization(pyqg.QParameterization):
         Run ensemble of simulations with parameterization
         and save statistics 
         '''
-        from torch.multiprocessing import Pool, set_start_method
         set_start_method('spawn', force=True)
         
         print('Testing online with pyqg_params:', pyqg_params)
@@ -355,16 +350,21 @@ class Parameterization(pyqg.QParameterization):
         '''
         pyqg_low = pyqg_params.copy()
         pyqg_low['parameterization'] = self
+        pyqg_low['tmax'] = Tmax
 
         pyqg_high = pyqg_params.copy()
         pyqg_high['nx'] = ds.x.size
+        pyqg_high['dt'] = 3600
+        pyqg_high['tmax'] = Tmax
 
-        snapshots = []
-        for run in range(nruns):
-            print('run of ensemble =', run)
-            q = sample(ds)
-            snapshots.append(run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
-                sampling_type, nsteps, Tmax, output_sampling, ensemble_size))
+        set_start_method('spawn', force=True)
+        q_init = [sample(ds) for run in range(nruns)]
+
+        with Pool(5) as pool:
+            pool.starmap(init_seeds, [()]*5)
+            snapshots = pool.starmap(run_simulation_with_two_models, 
+                zip(q_init, [pyqg_low]*nruns, [pyqg_high]*nruns, [sampling_type]*nruns, 
+                [nsteps]*nruns, [output_sampling]*nruns, [ensemble_size]*nruns))
 
         out = xr.concat(snapshots, dim='run')
         
