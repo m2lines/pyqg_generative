@@ -170,6 +170,42 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
 
     return ds
 
+def compute_highres_trajectories(ds, pyqg_params, Tmax=90*DAY, output_sampling=1*DAY, nruns=15):
+    '''
+    Computes trajectory of highres model, and save
+    coarsegrained result. Will be used as initial
+    condition and target trajectory in esemble forecasting
+
+    ds - dataset with highres data
+    '''
+    pyqg_high = pyqg_params.copy()
+    pyqg_high['nx'] = ds.x.size
+    pyqg_high['dt'] = 3600
+    pyqg_high['tmax'] = Tmax
+    
+    # Filter to coarse resolution
+    def filter(model):
+        op = ppb.coarsening_ops.Operator1(model, pyqg_params['nx'])              
+        return op.m2.to_dataset().q
+    
+    individual_runs = []
+    for run in range(nruns):
+        q = sample(ds)
+        highres = pyqg.QGModel(**pyqg_high, log_level=0)
+        highres.set_q1q2(*q.values.astype('float64'))
+        snapshots = []
+        time = []
+        for t in highres.run_with_snapshots(tsnapint = output_sampling):
+            snapshots.append(filter(highres))
+            time.append(t)
+        individual_runs.append(xr.concat(snapshots, dim='time'))
+    
+    out = xr.Dataset()
+    out['q'] = xr.concat(individual_runs, dim='run')
+    out['time'] = xr.DataArray(time, dims=['time'])
+    out.attrs['pyqg_params'] = str(pyqg_params)
+    return out.astype('float32')
+
 def run_simulation(pyqg_params, sampling_type, nsteps,
     sample_interval):
     '''
