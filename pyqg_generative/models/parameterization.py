@@ -314,15 +314,12 @@ class Parameterization(pyqg.QParameterization):
         Run ensemble of simulations with parameterization
         and save statistics 
         '''
-        set_start_method('spawn', force=True)
-        
-        print('Testing online with pyqg_params:', pyqg_params)
-
         delta = pyqg.QGModel(**pyqg_params).delta
 
         params = pyqg_params.copy()
         params['parameterization'] = self
         
+        set_start_method('spawn', force=True)
         with Pool(5) as pool:
             pool.starmap(init_seeds, [()]*5)
             datasets = pool.starmap(run_simulation, [(params, sampling_type, nsteps, sample_interval)]*nruns)
@@ -545,14 +542,3 @@ class TrivialStochastic(Parameterization):
         
     def nst_ch(self):
         return 2
-
-if __name__ == '__main__':
-    params = EDDY_PARAMS
-    params.update({'nx': 256, 'ntd': 4, 'logfile': 'log.txt'})
-    model = ReferenceModel()
-    model.test_online(params).to_netcdf('online_eddy.nc')
-
-    params = JET_PARAMS
-    params.update({'nx': 256, 'ntd': 4, 'logfile': 'log.txt'})
-    model = ReferenceModel()
-    model.test_online(params).to_netcdf('online_jet.nc')
