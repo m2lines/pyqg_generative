@@ -2,8 +2,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import random
 import xarray as xr
 from time import time
+
+def init_seeds():
+    '''
+    https://pytorch.org/docs/stable/notes/randomness.html
+    Pytorch creates different seeds for each runs
+    and for each process, and this seed is used to init numpy!
+
+    Use only if workers are spawned. Otherwise 
+    all calls will be identical!!!
+    '''
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 def timer(func):
     # This function shows the execution time of 

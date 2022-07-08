@@ -1,6 +1,6 @@
 from pyqg_generative.tools.computational_tools import PDF_histogram
 from pyqg_generative.tools.spectral_tools import calc_ispec, xarray_to_model, coord, spectrum, ave_lev
-from pyqg_generative.tools.cnn_tools import array_to_dataset, timer
+from pyqg_generative.tools.cnn_tools import array_to_dataset, timer, init_seeds
 
 import pyqg_parameterization_benchmarks as ppb
 import xarray as xr
@@ -9,11 +9,12 @@ import numpy as np
 
 DAY = 86400
 YEAR = 360*DAY
-EDDY_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR}
-JET_PARAMS = {'nx': 64, 'dt': 3600.0, 'tmax': 10*YEAR, 'tavestart': 5*YEAR, 'rek': 7e-08, 'delta': 0.1, 'beta': 1e-11}
+EDDY_PARAMS = {'nx': 64, 'dt': 3600*4, 'tmax': 10*YEAR, 'tavestart': 5*YEAR}
+JET_PARAMS = {'nx': 64, 'dt': 3600*4, 'tmax': 10*YEAR, 'tavestart': 5*YEAR, 'rek': 7e-08, 'delta': 0.1, 'beta': 1e-11}
 SAMPLE_SLICE = slice(-40, None) # in indices
 AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
 AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
+ANDREW_1000_STEPS = 3600000
 
 class noise_time_sampler():
     '''
@@ -144,9 +145,9 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
         ds[key+'r'] = sp
 
     # Check that selector defined in SECONDS (but not indices) works
-    assert len(ds.time.sel(time=time)) < len(ds.time)
+    assert len(ds.time.sel(time=time)) < 3/4 * len(ds.time)
     # There are snapshots for PDF
-    assert len(ds.time.sel(time=time)) > 0
+    assert len(ds.time.sel(time=time)) > 1/4 * len(ds.time)
 
     # Compute PDFs
     x = ds.sel(time=time).isel(lev=0)['q'].values.ravel()
@@ -168,7 +169,6 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
 
     return ds
 
-@timer
 def run_simulation(pyqg_params, sampling_type, nsteps,
     sample_interval):
     '''
@@ -183,9 +183,7 @@ def run_simulation(pyqg_params, sampling_type, nsteps,
     for t in m.run_with_snapshots(tsnapint = sample_interval):
         snapshots.append(m.to_dataset().copy(deep=True))
 
-    out = concat_in_time(snapshots)
-    out.attrs['pyqg_params'] = str(pyqg_params)
-    return out
+    return concat_in_time(snapshots)
 
 @timer
 def run_simulation_with_two_models(q, pyqg_low, pyqg_high, 
@@ -237,10 +235,7 @@ def run_simulation_with_two_models(q, pyqg_low, pyqg_high,
     out['q_gen'] = q_lowres.isel(ensemble=0).copy()
     out['q_true'] = q_highres.copy()
 
-    del q_lowres
-    del q_highres
-
-    return out.astype('float32')
+    return out
 
 def subgrid_scores(true, mean, gen):
     '''
@@ -318,25 +313,27 @@ class Parameterization(pyqg.QParameterization):
 
     @timer
     def test_online(self, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
-        nruns=5, sample_interval=30*DAY):
+        nruns=5, sample_interval=ANDREW_1000_STEPS):
         '''
         Run ensemble of simulations with parameterization
         and save statistics 
         '''
+        from torch.multiprocessing import Pool, set_start_method
+        set_start_method('spawn', force=True)
+        
         print('Testing online with pyqg_params:', pyqg_params)
 
         delta = pyqg.QGModel(**pyqg_params).delta
 
         params = pyqg_params.copy()
         params['parameterization'] = self
-            
-        datasets = []    
-        for run in range(nruns):
-            print('run = ', run)
-            datasets.append(run_simulation(params, sampling_type, nsteps,
-                sample_interval))
         
-        out = concat_in_run(datasets, delta=delta).astype('float32')
+        with Pool(5) as pool:
+            pool.starmap(init_seeds, [()]*5)
+            datasets = pool.starmap(run_simulation, [(params, sampling_type, nsteps, sample_interval)]*nruns)
+        
+        out = concat_in_run(datasets, delta=delta, 
+            time=slice(params['tavestart'],None)).astype('float32')
         out.attrs['pyqg_params'] = str(pyqg_params)
         return out
 
