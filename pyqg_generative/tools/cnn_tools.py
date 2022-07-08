@@ -357,6 +357,10 @@ def train(net, X_train: np.array, Y_train:np. array,
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
     print(f"Training starts on device {device}, number of samples {len(X_train)}")
+    try:
+        print('CUDA device = ', torch.cuda.get_device_name(0))
+    except:
+        pass
 
     # Switch batchnorm2d layer to training mode
     net.train()
