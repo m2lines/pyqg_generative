@@ -51,8 +51,8 @@ if args.model in ['lowres', 'OLSModel']:
     model.test_online(EDDY_PARAMS).to_netcdf('online_test.nc')
     model.test_online(JET_PARAMS).to_netcdf('online_transfer.nc')
 else:
-    for sampling in ['AR1', 'constant']:
-        for nsteps in [1, 12, 24, 48]:
+    for sampling in ['constant', 'AR1']:
+        for nsteps in [1, 6, 12]:
             model.test_ensemble(test_highres, EDDY_PARAMS, 
                 sampling_type=sampling, nsteps=nsteps).to_netcdf('ensemble_test_'+sampling+'_'+str(nsteps)+'.nc')
             model.test_ensemble(transfer_highres, JET_PARAMS, 
