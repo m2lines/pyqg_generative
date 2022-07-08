@@ -62,7 +62,11 @@ def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
     All local output will occur in the folder, 
     because slurm script will be run in the folder
     '''
-    os.system('rm -rf '+ folder)
+    if os.path.exists(folder):
+        delete = input(f'Delete folder {folder}? Answer y/n:')
+        if delete == 'y':
+            os.system('rm -rf '+ folder)
+            
     os.system('mkdir -p '+ folder)
 
     create_slurm(folder, script_py, hpc, args)
