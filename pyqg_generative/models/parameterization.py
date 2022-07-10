@@ -154,7 +154,7 @@ def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
     x = ds.sel(time=time).isel(lev=0)['q'].values.ravel()
     points, density = PDF_histogram(x, Nbins=100, xmin=-3e-5, xmax=3e-5)
     ds['pdf_pv'] = xr.DataArray(density, dims=['pv'],
-        coords=[coord(points, 'potential vorticity, $m^{-1}$')],
+        coords=[coord(points, 'potential vorticity, $s^{-1}$')],
         attrs=dict(long_name='PDF of upper level PV'))
     
     KE = ave_lev(0.5*(ds.u**2 + ds.v**2), delta)
