@@ -12,6 +12,7 @@ if __name__ == '__main__':
     def read_ds(path):
         ds = pse.Dataset(path)
         ds['psi'] = ds.streamfunction
+        #ds = ds.drop_vars('q_forcing_advection').rename({'q_forcing_total': 'q_forcing_advection'})
         return ds
 
     parser = argparse.ArgumentParser()
