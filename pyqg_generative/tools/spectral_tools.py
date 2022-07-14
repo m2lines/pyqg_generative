@@ -1,29 +1,7 @@
 import numpy as np
 import xarray as xr
 import pyqg
-
-def xarray_to_model(arr):
-    nx = len(arr.x)
-    return pyqg.QGModel(nx=nx, log_level=0)
-
-coord = lambda x, name: xr.DataArray(x, attrs={'long_name': name})
-
-def ave_lev(arr: xr.DataArray, delta):
-    '''
-    Average over depth xarray
-    delta = H1/H2
-    H = H1+H2
-    Weights are:
-    Hi[0] = H1/H = H1/(H1+H2)=H1/H2/(H1/H2+1)=delta/(1+delta)
-    Hi[1] = H2/H = H2/(H1+H2)=1/(1+delta)
-    '''
-    if 'lev' in arr.dims:
-        Hi = xr.DataArray([delta/(1+delta), 1/(1+delta)], dims=['lev'])
-        out  = (arr*Hi).sum(dim='lev')
-        out.attrs = arr.attrs
-        return out
-    else:
-        return arr
+from pyqg_generative.tools.operators import xarray_to_model, coord
 
 class spectrum():
     def __init__(self, type='power', averaging=False, truncate=False, time=slice(44,None)):

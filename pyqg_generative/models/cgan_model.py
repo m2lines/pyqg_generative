@@ -7,6 +7,7 @@ from time import time
 from tools.cnn_tools import *
 from tools.deep_inversion import DeepInversionGenerator, DeepInversionDiscriminator
 from tools.computational_tools import *
+from pyqg_generative.tools.operators import coord
 
 class CGAN(nn.Module):
     def __init__(self, n_in: int, n_out: int, n_latent: int, 
