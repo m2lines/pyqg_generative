@@ -5,9 +5,8 @@ import pyqg
 import itertools
 from functools import wraps
 
-def xarray_to_model(arr):
-    nx = len(arr.x)
-    return pyqg.QGModel(nx=nx, log_level=0)
+FILTER_2h_HARMONICS = True
+FULL_VELOCITY = False
 
 coord = lambda x, name: xr.DataArray(x, attrs={'long_name': name})
 
@@ -99,7 +98,10 @@ def coarsegrain(X, ratio):
         raise ValueError('X should be divisible on ratio')
     
     XX = xr.DataArray(X, dims=['y', 'x'])
-    return clean_2h(XX.coarsen(y=ratio, x=ratio).mean().values)
+    Y = XX.coarsen(y=ratio, x=ratio).mean().values
+    if FILTER_2h_HARMONICS:
+        Y = clean_2h(Y)
+    return Y
 
 @array_format
 def cut_off(X, ratio):
@@ -110,9 +112,10 @@ def cut_off(X, ratio):
     trunc = np.vstack((Xf[:n,:n+1],
                        Xf[-n:,:n+1])) / ratio**2
 
-    # Remove 2h harmonics which are not invertible (because do not have phase)
-    trunc[n,0] = 0
-    trunc[:,n] = 0
+    if FILTER_2h_HARMONICS:
+        # Remove 2h harmonics which are not invertible (because do not have phase)
+        trunc[n,0] = 0
+        trunc[:,n] = 0
 
     return np.fft.irfftn(trunc)
 
@@ -136,3 +139,58 @@ def Operator2(X, ratio):
 
 def Operator3(X, ratio):
     return coarsegrain(gcm_filter(X, ratio), ratio)
+
+def apply_operator_to_model(q, ratio, operator, pyqg_params):
+    '''
+    Here q is numpy array of Nlev x Ny x Nx
+    operator: Operator1, Operator2, Operator3
+    pyqg_params: pyqg model parameters
+    '''
+    # Coarsegrain main variable
+    qf = operator(q.astype('float64'), ratio)
+    
+    # Construct pyqg model
+    params = pyqg_params.copy()
+    params.update(dict(nx=qf.shape[1]))
+    m = pyqg.QGModel(**params)
+    m.q = qf
+    m._invert() # Computes real space velocities
+
+    if FULL_VELOCITY:
+        uf = m.ufull
+        vf = m.vfull
+    else:
+        uf = m.u
+        vf = m.v
+    
+    return qf, uf, vf
+
+# Computation of subgrid fluxes. As usual, we assume 
+# working with numpy arrays with Nlev x Ny x Nx
+
+def advect(var, u, v):
+    m = pyqg.QGModel(nx=var.shape[1], log_level=0)
+    def ddx(x):
+        return m.ifft(m.fft(x) * m.ik)
+    def ddy(x):
+        return m.ifft(m.fft(x) * m.il)
+    return ddx(var*u) + ddy(var*v)
+
+def PV_subgrid_flux(q, ratio, operator, pyqg_params):
+    '''
+    Here q is numpy array of Nlev x Ny x Nx
+    operator: Operator1, Operator2, Operator3
+    pyqg_params: pyqg model parameters
+    '''
+    q, u, v = apply_operator_to_model(q, 1, clean_2h, pyqg_params) # Just compute u and v, but before remove 2h harmonics
+    qf, uf, vf = apply_operator_to_model(q, ratio, operator, pyqg_params)
+
+    uqflux = uf * qf - operator(u*q, ratio)
+    vqflux = vf * qf - operator(v*q, ratio)
+    return uqflux, vqflux
+
+def PV_subgrid_forcing(q, ratio, operator, pyqg_params):
+    q, u, v = apply_operator_to_model(q, 1, clean_2h, pyqg_params) # Just compute u and v, but before remove 2h harmonics
+    qf, uf, vf = apply_operator_to_model(q, ratio, operator, pyqg_params)
+    return advect(qf, uf, vf) - operator(advect(q, u, v), ratio)
+

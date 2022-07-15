@@ -1,7 +1,11 @@
 import numpy as np
 import xarray as xr
 import pyqg
-from pyqg_generative.tools.operators import xarray_to_model, coord
+from pyqg_generative.tools.operators import coord
+
+def xarray_to_model(arr):
+    nx = len(arr.x)
+    return pyqg.QGModel(nx=nx, log_level=0)
 
 class spectrum():
     def __init__(self, type='power', averaging=False, truncate=False, time=slice(44,None)):

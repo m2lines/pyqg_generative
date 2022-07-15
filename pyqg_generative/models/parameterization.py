@@ -1,12 +1,16 @@
 from pyqg_generative.tools.computational_tools import PDF_histogram
 from pyqg_generative.tools.spectral_tools import calc_ispec, spectrum
 from pyqg_generative.tools.cnn_tools import array_to_dataset, timer, init_seeds
-from pyqg_generative.tools.operators import xarray_to_model, coord, ave_lev
+from pyqg_generative.tools.operators import coord, ave_lev
 import pyqg_parameterization_benchmarks as ppb
 from torch.multiprocessing import Pool, set_start_method
 import xarray as xr
 import pyqg
 import numpy as np
+
+def xarray_to_model(arr):
+    nx = len(arr.x)
+    return pyqg.QGModel(nx=nx, log_level=0)
 
 DAY = 86400
 YEAR = 360*DAY
