@@ -216,3 +216,27 @@ def PV_forcing_total(q, ratio, operator, pyqg_params):
         m._do_friction()
     
     return operator(m1.ifft(m1.dqhdt), ratio) - m2.ifft(m2.dqhdt)
+
+def PV_forcing_true_total(q, ratio, operator, pyqg_params):
+    params1 = pyqg_params.copy()
+    params1.update(nx=q.shape[1], log_level=0)
+    m1 = pyqg.QGModel(**params1)
+    m1.q = q
+
+    # Coarsegrain main variable
+    qf = operator(q.astype('float64'), ratio)
+    params2 = pyqg_params.copy()
+    params2.update(nx=qf.shape[1], log_level=0)
+    m2 = pyqg.QGModel(**params2)
+    m2.q = qf
+
+    for m in [m1, m2]:
+        m._invert()
+        m._do_advection()
+        m._do_friction()
+        m._forward_timestep()
+    
+    dqhdt_1 = (m1.q - q) / m1.dt
+    dqhdt_2 = (m2.q - qf) / m2.dt
+
+    return operator(dqhdt_1, ratio) - dqhdt_2
