@@ -151,7 +151,7 @@ def apply_operator_to_model(q, ratio, operator, pyqg_params):
     
     # Construct pyqg model
     params = pyqg_params.copy()
-    params.update(dict(nx=qf.shape[1]))
+    params.update(dict(nx=qf.shape[1], log_level=0))
     m = pyqg.QGModel(**params)
     m.q = qf
     m._invert() # Computes real space velocities
@@ -168,13 +168,16 @@ def apply_operator_to_model(q, ratio, operator, pyqg_params):
 # Computation of subgrid fluxes. As usual, we assume 
 # working with numpy arrays with Nlev x Ny x Nx
 
-def advect(var, u, v):
-    m = pyqg.QGModel(nx=var.shape[1], log_level=0)
+def divergence(fx, fy):
+    m = pyqg.QGModel(nx=fx.shape[1], log_level=0)
     def ddx(x):
         return m.ifft(m.fft(x) * m.ik)
     def ddy(x):
         return m.ifft(m.fft(x) * m.il)
-    return ddx(var*u) + ddy(var*v)
+    return ddx(fx) + ddy(fy)
+
+def advect(var, u, v):
+    return divergence(var*u, var*v)
 
 def PV_subgrid_flux(q, ratio, operator, pyqg_params):
     '''
@@ -193,4 +196,3 @@ def PV_subgrid_forcing(q, ratio, operator, pyqg_params):
     q, u, v = apply_operator_to_model(q, 1, clean_2h, pyqg_params) # Just compute u and v, but before remove 2h harmonics
     qf, uf, vf = apply_operator_to_model(q, ratio, operator, pyqg_params)
     return advect(qf, uf, vf) - operator(advect(q, u, v), ratio)
-
