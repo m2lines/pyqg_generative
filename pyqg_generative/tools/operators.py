@@ -185,7 +185,7 @@ def PV_subgrid_flux(q, ratio, operator, pyqg_params):
     operator: Operator1, Operator2, Operator3
     pyqg_params: pyqg model parameters
     '''
-    q, u, v = apply_operator_to_model(q, 1, clean_2h, pyqg_params) # Just compute u and v, but before remove 2h harmonics
+    q, u, v = apply_operator_to_model(q, 1, lambda x, ratio: x, pyqg_params) # Just compute u and v, but before remove 2h harmonics
     qf, uf, vf = apply_operator_to_model(q, ratio, operator, pyqg_params)
 
     uqflux = uf * qf - operator(u*q, ratio)
@@ -193,6 +193,26 @@ def PV_subgrid_flux(q, ratio, operator, pyqg_params):
     return uqflux, vqflux
 
 def PV_subgrid_forcing(q, ratio, operator, pyqg_params):
-    q, u, v = apply_operator_to_model(q, 1, clean_2h, pyqg_params) # Just compute u and v, but before remove 2h harmonics
+    q, u, v = apply_operator_to_model(q, 1, lambda x, ratio: x, pyqg_params) # Just compute u and v, but before remove 2h harmonics
     qf, uf, vf = apply_operator_to_model(q, ratio, operator, pyqg_params)
     return advect(qf, uf, vf) - operator(advect(q, u, v), ratio)
+
+def PV_forcing_total(q, ratio, operator, pyqg_params):
+    params1 = pyqg_params.copy()
+    params1.update(nx=q.shape[1], log_level=0)
+    m1 = pyqg.QGModel(**params1)
+    m1.q = q
+
+    # Coarsegrain main variable
+    qf = operator(q.astype('float64'), ratio)
+    params2 = pyqg_params.copy()
+    params2.update(nx=qf.shape[1], log_level=0)
+    m2 = pyqg.QGModel(**params2)
+    m2.q = qf
+
+    for m in [m1, m2]:
+        m._invert()
+        m._do_advection()
+        m._do_friction()
+    
+    return operator(m1.ifft(m1.dqhdt), ratio) - m2.ifft(m2.dqhdt)
