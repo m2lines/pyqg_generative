@@ -6,7 +6,6 @@ import itertools
 from functools import wraps
 
 FILTER_2h_HARMONICS = True
-FULL_VELOCITY = False
 
 coord = lambda x, name: xr.DataArray(x, attrs={'long_name': name})
 
@@ -164,15 +163,9 @@ def apply_operator_to_model(q, nc, operator, pyqg_params):
     m = pyqg.QGModel(**params)
     m.q = qf
     m._invert() # Computes real space velocities
+    m._calc_derived_fields() # Computes derived variables
 
-    if FULL_VELOCITY:
-        uf = m.ufull
-        vf = m.vfull
-    else:
-        uf = m.u
-        vf = m.v
-    
-    return qf, uf, vf
+    return m
 
 # Computation of subgrid fluxes. As usual, we assume 
 # working with numpy arrays with Nlev x Ny x Nx
@@ -194,17 +187,18 @@ def PV_subgrid_flux(q, nc, operator, pyqg_params):
     operator: Operator1, Operator2, Operator3
     pyqg_params: pyqg model parameters
     '''
-    q, u, v = apply_operator_to_model(q, 1, lambda x, ratio: x, pyqg_params) # Just compute u and v
-    qf, uf, vf = apply_operator_to_model(q, nc, operator, pyqg_params)
+    m = apply_operator_to_model(q, 1, lambda x, nc: x, pyqg_params) # Just compute u and v
+    mf = apply_operator_to_model(q, nc, operator, pyqg_params)
 
-    uqflux = uf * qf - operator(u*q, nc)
-    vqflux = vf * qf - operator(v*q, nc)
+    uqflux = mf.u * mf.q - operator(m.u*m.q, nc)
+    vqflux = mf.v * mf.q - operator(m.v*m.q, nc)
     return uqflux, vqflux
 
 def PV_subgrid_forcing(q, nc, operator, pyqg_params):
-    q, u, v = apply_operator_to_model(q, 1, lambda x, nc: x, pyqg_params) # Just compute u and v
-    qf, uf, vf = apply_operator_to_model(q, nc, operator, pyqg_params)
-    return advect(qf, uf, vf) - operator(advect(q, u, v), nc)
+    m = apply_operator_to_model(q, 1, lambda x, nc: x, pyqg_params) # Just compute u and v
+    mf = apply_operator_to_model(q, nc, operator, pyqg_params)
+    forcing = advect(mf.q, mf.u, mf.v) - operator(advect(m.q, m.u, m.v), nc)
+    return forcing, mf
 
 def PV_forcing_total(q, nc, operator, pyqg_params):
     params1 = pyqg_params.copy()

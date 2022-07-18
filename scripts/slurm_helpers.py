@@ -56,16 +56,17 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
     with open(os.path.join(folder, 'launcher.sub'),'w') as fid:
         fid.writelines([ line+'\n' for line in lines])
 
-def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
+def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS, delete=False):
     '''
     Creates folder, slurm script and runs slurm script
     All local output will occur in the folder, 
     because slurm script will be run in the folder
     '''
-    if os.path.exists(folder):
-        delete = input(f'Delete folder {folder}? Answer y/n:')
-        if delete == 'y':
-            os.system('rm -rf '+ folder)
+    if delete:
+        if os.path.exists(folder):
+            delete = input(f'Delete folder {folder}? Answer y/n:')
+            if delete == 'y':
+                os.system('rm -rf '+ folder)
             
     os.system('mkdir -p '+ folder)
 
