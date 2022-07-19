@@ -12,10 +12,6 @@ def xarray_to_model(arr):
     nx = len(arr.x)
     return pyqg.QGModel(nx=nx, log_level=0)
 
-DAY = 86400
-YEAR = 360*DAY
-EDDY_PARAMS = {'nx': 64, 'dt': 3600*4, 'tmax': 10*YEAR, 'tavestart': 5*YEAR}
-JET_PARAMS = {'nx': 64, 'dt': 3600*4, 'tmax': 10*YEAR, 'tavestart': 5*YEAR, 'rek': 7e-08, 'delta': 0.1, 'beta': 1e-11}
 SAMPLE_SLICE = slice(-40, None) # in indices
 AVERAGE_SLICE = slice(360*5*DAY,None) # in seconds
 AVERAGE_SLICE_ANDREW = slice(44,None) # in indices
@@ -92,36 +88,6 @@ def sample(ds, time=SAMPLE_SLICE, variable='q'):
             coordinate = {dim: np.random.choice(q[dim])}
             q = q.sel(coordinate)
     return q
-
-def concat_in_time(datasets):
-    '''
-    Concatenation of snapshots in time:
-    - Concatenate everything
-    - Store averaged statistics
-    - Discard complex vars
-    - Reduce precision
-    '''
-    # Concatenate datasets along the time dimension
-    ds = xr.concat(datasets, dim='time')
-    
-    # Diagnostics get dropped by this procedure since they're only present for
-    # part of the timeseries; resolve this by saving the most recent
-    # diagnostics (they're already time-averaged so this is ok)
-    for key,var in datasets[-1].variables.items():
-        if key not in ds:
-            ds[key] = var.isel(time=-1)
-
-    # To save on storage, reduce double -> single
-    # And discard complex vars
-    for key,var in ds.variables.items():
-        if var.dtype == np.float64:
-            ds[key] = var.astype(np.float32)
-        elif var.dtype == np.complex128:
-            ds = ds.drop_vars(key)
-
-    ds = ds.rename({'p': 'psi'}) # Change for conventional name
-
-    return ds
 
 def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
     '''

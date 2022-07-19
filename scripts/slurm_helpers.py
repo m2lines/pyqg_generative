@@ -46,8 +46,17 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         + '/bin/bash -c "source /ext3/env.sh; time '
     
     python_command = 'python -u ' + script_py
+    def quotes(s):
+        '''
+        These quotes allows to robustly pass sophisticated
+        str arguments, such as str(dict)
+        '''
+        if isinstance(s, str):
+            return "\\\"" + str(s) + "\\\""
+        else:
+            return str(s)
     for key in args.keys():
-        python_command += ' --'+key+'='+str(args[key])
+        python_command += ' --'+key+'='+quotes(args[key])
 
     python_command += ' > out.txt"'
 
