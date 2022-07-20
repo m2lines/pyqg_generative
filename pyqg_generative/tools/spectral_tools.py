@@ -2,13 +2,10 @@ import numpy as np
 import xarray as xr
 import pyqg
 from pyqg_generative.tools.operators import coord
-
-def xarray_to_model(arr):
-    nx = len(arr.x)
-    return pyqg.QGModel(nx=nx, log_level=0)
+from pyqg_generative.tools.parameters import AVERAGE_SLICE_ANDREW
 
 class spectrum():
-    def __init__(self, type='power', averaging=False, truncate=False, time=slice(44,None)):
+    def __init__(self, type='power', averaging=False, truncate=False, time=AVERAGE_SLICE_ANDREW):
         '''
         Init type of transform here
         Usage to compute power spectrum:
@@ -51,7 +48,7 @@ class spectrum():
         return np.fft.rfftn(x, axes=(-2,-1)) / M
 
     def isotropize(self, af2, *x, name, description, units):
-        m = xarray_to_model(x[0])
+        m = pyqg.QGModel(nx=len(x[0].x), log_level=0)
         if self.type != 'cross_layer':
             sp_list = []
             for z in [0,1]:

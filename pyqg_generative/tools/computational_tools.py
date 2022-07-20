@@ -1,5 +1,6 @@
 import numpy as np
 import xarray as xr
+from pyqg_generative.tools.spectral_tools import spectrum
 
 def PDF_histogram(x, xmin=None, xmax=None, Nbins=30):
     """
@@ -30,3 +31,43 @@ def PDF_histogram(x, xmin=None, xmax=None, Nbins=30):
     #print(f"This interval covers {sum(hist)/N} of total probability")
     
     return points, density
+
+def subgrid_scores(true, mean, gen):
+    '''
+    Compute scalar metrics for three components of subgrid forcing:
+    - Mean subgrid forcing      ~ close to true forcing in MSE
+    - Generated subgrid forcing ~ close to true forcing in spectrum
+    - Genereted residual        ~ close to true residual in spectrum 
+    true - xarray with true forcing
+    mean - mean prediction
+    gen  - generated prediction
+
+    Result is score, i.e. 1-mse/normalization
+
+    Here we assume that dataset has dimensions run x time x lev x Ny x Nx
+    '''
+    def R2(x, x_true):
+        dims = [d for d in x.dims if d != 'lev']
+        return float((1 - ((x-x_true)**2).mean(dims) / (x_true).var(dims)).mean())
+    def L2(x, x_true):
+        dims = [d for d in x.dims if d != 'lev']
+        return float( ((((x-x_true)**2).mean(dims) / x_true.var(dims))**0.5).mean() )
+    
+    ds = xr.Dataset()
+    # first compute R2 for each layer, and after that normalize
+    ds['R2_mean'] = R2(mean, true)
+    ds['L2_mean'] = L2(mean, true)
+
+    sp = spectrum(time=slice(None,None)) # power spectrum for full time slice
+
+    ds['sp_true'] = sp(true).astype('float64')
+    ds['sp_gen'] = sp(gen).astype('float64')
+    ds['R2_total'] = R2(ds.sp_gen, ds.sp_true)
+    ds['L2_total'] = L2(ds.sp_gen, ds.sp_true)
+    
+    ds['sp_true_res'] = sp(true-mean).astype('float64')
+    ds['sp_gen_res'] = sp(gen-mean).astype('float64')
+    ds['R2_residual'] = R2(ds.sp_gen_res, ds.sp_true_res)
+    ds['L2_residual'] = L2(ds.sp_gen_res, ds.sp_true_res)
+
+    return ds

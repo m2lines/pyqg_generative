@@ -140,6 +140,31 @@ def DCGAN_discriminator(in_channels, ndf=64, bn='BatchNorm'):
         )
     return model
 
+def extract(ds, key):
+    var = ds[key].values
+    return var.reshape(-1,*var.shape[2:])
+
+def prepare_PV_data(ds_train, ds_test):
+    '''
+    Extract Potential vorticity as input ('q')
+    and subgrid PV forcing ('q_forcing_advection')
+    as output, and normalizes data
+    '''
+    X_train = extract(ds_train, 'q')
+    Y_train = extract(ds_train, 'q_forcing_advection')
+    X_test = extract(ds_test, 'q')
+    Y_test = extract(ds_test, 'q_forcing_advection')
+
+    x_scale = ChannelwiseScaler(X_train)
+    y_scale = ChannelwiseScaler(Y_train)
+
+    X_train = x_scale.normalize(X_train)
+    X_test = x_scale.normalize(X_test)
+    Y_train = y_scale.normalize(Y_train)
+    Y_test = y_scale.normalize(Y_test)
+
+    return X_train, Y_train, X_test, Y_test, x_scale, y_scale
+
 def extract_arrays(ds: xr.DataArray, features: list[str], lev=slice(0,2)):
     '''
     Input dataset is expected to have dimensions:
@@ -356,11 +381,8 @@ def train(net, X_train: np.array, Y_train:np. array,
     '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
-    print(f"Training starts on device {device}, number of samples {len(X_train)}")
-    try:
-        print('CUDA device = ', torch.cuda.get_device_name(0))
-    except:
-        pass
+    device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    print(f"Training starts on device {device_name}, number of samples {len(X_train)}")
 
     # Switch batchnorm2d layer to training mode
     net.train()
@@ -394,7 +416,7 @@ def train(net, X_train: np.array, Y_train:np. array,
             t-t_e, (t-t_s)*(num_epochs/(epoch+1)-1),
             net.log_dict['loss'][-1], net.log_dict['loss_test'][-1]))
 
-def apply_function(net, fun, X: np.array) -> np.array:
+def apply_function(net, X: np.array, fun=None) -> np.array:
     '''
     Apply forward function to array X of size
     Nsamples x Nfeatures x Ny x Nx.
@@ -404,6 +426,8 @@ def apply_function(net, fun, X: np.array) -> np.array:
     net.to(device)
     net.eval()
 
+    if fun is None:
+        fun = net.forward
     # stack batch predictions in a list
     preds = []
     for x, in minibatch(X, batch_size=64, shuffle=False):
