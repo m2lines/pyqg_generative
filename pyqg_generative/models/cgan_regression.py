@@ -4,10 +4,11 @@ import numpy as np
 import xarray as xr
 import torch.optim as optim
 from time import time
+from os.path import exists
 import os
 
-from pyqg_generative.tools.cnn_tools import AndrewCNN, DCGAN_discriminator, \
-    train, apply_function, extract, prepare_PV_data, weights_init, minibatch, \
+from pyqg_generative.tools.cnn_tools import AndrewCNN, ChannelwiseScaler, log_to_xarray, save_model_args, \
+    DCGAN_discriminator, train, apply_function, extract, prepare_PV_data, weights_init, minibatch, \
     AverageLoss
 from pyqg_generative.tools.computational_tools import subgrid_scores
 from pyqg_generative.models.parameterization import Parameterization
@@ -44,8 +45,10 @@ class CGANRegression(Parameterization):
 
         self.G.apply(weights_init)
         self.D.apply(weights_init)
+
+        self.load_model()
     
-    def fit(self, ds_train, ds_test, num_epochs=50, 
+    def fit(self, ds_train, ds_test, num_epochs=50, num_epochs_regression=50, 
         batch_size=64, learning_rate=2e-4, nruns=5):
 
         X_train, Y_train, X_test, Y_test, self.x_scale, self.y_scale = \
@@ -55,11 +58,48 @@ class CGANRegression(Parameterization):
             train(self.net_mean,
                 X_train, Y_train,
                 X_test, Y_test,
-                num_epochs, batch_size, 0.001)
-            
-        train_CGAN(self, ds_train, ds_test,
+                num_epochs_regression, batch_size, 0.001)
+        
+        self.save_model(
+            *train_CGAN(self, ds_train, ds_test,
             X_train, Y_train, num_epochs, batch_size, learning_rate, 
             nruns)
+        )
+    
+    def save_model(self, optim_loss, log_train, log_test):
+        stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
+        stats.to_netcdf('model/stats.nc')
+        try:
+            log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+        except:
+            pass
+        print('Optimal epoch is', epoch)
+        self.G.load_state_dict(torch.load(f'model/G_{epoch}.pt', map_location='cpu'))
+        self.D.load_state_dict(torch.load(f'model/D_{epoch}.pt', map_location='cpu'))
+
+        os.system('rm model/G_*.pt')
+        os.system('rm model/D_*.pt')
+
+        torch.save(self.G.state_dict(), 'model/G.pt')
+        torch.save(self.D.state_dict(), 'model/D.pt')
+        if self.regression != 'None':
+            torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
+        self.x_scale.write('x_scale.json')
+        self.y_scale.write('y_scale.json')
+        save_model_args('CGANRegression', regression=self.regression)
+
+    def load_model(self):
+        if exists('model/G.pt'):
+            print(f'reading CGANRegression model')
+            self.G.load_state_dict(
+                torch.load('model/G.pt', map_location='cpu'))
+            self.D.load_state_dict(
+                torch.load('model/D.pt', map_location='cpu'))
+            if self.regression != 'None':
+                self.net_mean.load_state_dict(
+                    torch.load('model/net_mean.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json')
+            self.y_scale = ChannelwiseScaler().read('y_scale.json')
 
     def generate(self, x, z=None):
         dims = (x.shape[0], self.n_latent, x.shape[2], x.shape[3])
@@ -143,12 +183,7 @@ def evaluate_prediction(net, ds, nruns=None, M=16):
                    [['L2_mean', 'L2_total', 'L2_residual']]
 
 def loss_to_xarray(optim_loss, log_train, log_test):
-    num_epochs = len(optim_loss['G_loss'])
-    epoch = coord(np.arange(1, num_epochs+1), 'epoch')
-    for key in optim_loss.keys():
-        optim_loss[key] = xr.DataArray(optim_loss[key], dims='epoch', coords=[epoch])
-    
-    ds = xr.Dataset(optim_loss)
+    ds = log_to_xarray(optim_loss)
     ds.update(xr.concat(log_train, dim='epoch'))
     ds.update(xr.concat(log_test, dim='epoch').rename(
         dict(L2_mean='L2_mean_test', L2_total='L2_total_test', 
@@ -156,6 +191,8 @@ def loss_to_xarray(optim_loss, log_train, log_test):
     loss = ds.L2_mean_test + ds.L2_total_test + ds.L2_residual_test
     ds['loss'] = loss
     Epoch_opt = loss.idxmin()
+    ds['Epoch_opt'] = Epoch_opt
+    ds['loss_opt'] = loss.sel(epoch=Epoch_opt)
     return ds, int(Epoch_opt)
 
 def train_CGAN(net, ds_train, ds_test,
@@ -166,7 +203,7 @@ def train_CGAN(net, ds_train, ds_test,
     nruns - number of runs used in test and train
     datasets to evaluate prediction on the fly
     '''
-    os.system('mkdir -p checkpoints')
+    os.system('mkdir -p model')
 
     if net.regression != 'None':
         Y_mean = apply_function(net.net_mean, X_train)
@@ -243,7 +280,8 @@ def train_CGAN(net, ds_train, ds_test,
         log_train.append(evaluate_prediction(net, ds_train, nruns))
         log_test.append(evaluate_prediction(net, ds_test, nruns))
         
-        torch.save(net.G.state_dict(),f'checkpoints/G_{epoch+1}.pt')
+        torch.save(net.G.state_dict(),f'model/G_{epoch+1}.pt')
+        torch.save(net.D.state_dict(),f'model/D_{epoch+1}.pt')
         
         t = time()
         
@@ -256,11 +294,4 @@ def train_CGAN(net, ds_train, ds_test,
                      log_train[-1]['L2_total'], log_test[-1]['L2_total'],
                      log_train[-1]['L2_residual'], log_test[-1]['L2_residual']
                      ))
-    stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
-    print('Optimal epoch is', epoch)
-    file = f'checkpoints/G_{epoch}.pt'
-    print(file,' is loaded')
-    net.G.load_state_dict(torch.load(file, map_location='cpu'))
-    os.system('rm checkpoints/*.pt')
-    torch.save(net.G.state_dict(), 'checkpoints/G_final.pt')
-    stats.to_netcdf('checkpoints/stats.nc')
+    return optim_loss, log_train, log_test
