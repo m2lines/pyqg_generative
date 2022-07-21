@@ -59,7 +59,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
     for key in args.keys():
         python_command += ' --'+key+'='+quotes(args[key])
 
-    python_command += ' > out.txt"'
+    python_command += ' "' # close quotes
 
     lines.append(singularity + python_command)
 
