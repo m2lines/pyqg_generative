@@ -70,7 +70,7 @@ class stochastic_QGModel(pyqg.QGModel):
     Accumulate noise for correlated SGS closures
     '''
     def __init__(self, pyqg_params, sampling_type='AR1', nsteps=1):
-        super().__init__(**pyqg_params, log_level=0)
+        super().__init__(**pyqg_params)
         if sampling_type == 'AR1':
             self.noise_sampler = AR1_sampler(nsteps)
         elif sampling_type == 'constant':

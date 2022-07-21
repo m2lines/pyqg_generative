@@ -6,3 +6,4 @@ notebooks/checkpoints/*
 notebooks/net_state
 notebooks/stats.nc
 pyqg_generative.egg-info*
+notebooks/model/*

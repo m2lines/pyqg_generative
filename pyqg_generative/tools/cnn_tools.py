@@ -4,7 +4,24 @@ import torch.optim as optim
 import numpy as np
 import random
 import xarray as xr
+import json
 from time import time
+from pyqg_generative.tools.operators import coord
+
+def log_to_xarray(log_dict):
+    anykey = list(log_dict.keys())[0]
+    num_epochs = len(log_dict[anykey])
+    epoch = coord(np.arange(1, num_epochs+1), 'epoch')
+    for key in log_dict.keys():
+        log_dict[key] = xr.DataArray(log_dict[key], dims='epoch', coords=[epoch])
+        
+    return xr.Dataset(log_dict)
+
+def save_model_args(model, **kw):
+    d = dict(model=model)
+    d = {**d, **kw}
+    with open('model/model_args.json', 'w') as file:
+        json.dump(d, file)
 
 def init_seeds():
     '''
@@ -243,14 +260,16 @@ class ChannelwiseScaler:
     Class containing std and mean
     values for each channel
     '''
-    def __init__(self, X: np.array):
+    def __init__(self, X=None):
         ''' 
         Stores std and mean values.
-        X is array of size
+        X is numpy array of size
         Nbatch x Nfeatures x Ny x Nx.
         '''
-        self.mean = channelwise_mean(X)
-        self.std  = channelwise_std(X)
+        if X is not None:
+            self.mean = channelwise_mean(X)
+            self.std  = channelwise_std(X)
+
     def direct(self, X):
         '''
         Remove mean and normalize
@@ -277,6 +296,17 @@ class ChannelwiseScaler:
         use for quadratic variables
         '''
         return X * (self.std**2)
+    def write(self, name):
+        to_str = lambda x: str(x.tolist())
+        with open(f'model/{name}', 'w') as file:
+            json.dump(dict(mean=to_str(self.mean), std=to_str(self.std)), file)
+    def read(self, name):
+        to_numpy = lambda x: np.array(eval(x)).astype('float32')
+        with open(f'model/{name}') as file:
+            d = json.load(file)
+            self.std = to_numpy(d['std'])
+            self.mean = to_numpy(d['mean'])
+        return self
 
 class AverageLoss():
     '''

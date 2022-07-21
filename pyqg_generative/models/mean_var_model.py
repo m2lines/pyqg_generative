@@ -4,8 +4,11 @@ import numpy as np
 import xarray as xr
 import torch.nn.functional as functional
 
-from pyqg_generative.tools.cnn_tools import AndrewCNN, train, \
-    apply_function, extract, prepare_PV_data
+from os.path import exists
+import os
+
+from pyqg_generative.tools.cnn_tools import AndrewCNN, ChannelwiseScaler, log_to_xarray, train, \
+    apply_function, extract, prepare_PV_data, save_model_args
 from pyqg_generative.models.parameterization import Parameterization
 
 class VarCNN(AndrewCNN):
@@ -24,6 +27,8 @@ class MeanVarModel(Parameterization):
         # output 2 layers of q_forcing_advection
         self.net_mean = AndrewCNN(2,2)
         self.net_var = VarCNN(2,2)
+
+        self.load_model()
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
         batch_size=64, learning_rate=0.001):
@@ -46,6 +51,28 @@ class MeanVarModel(Parameterization):
             X_train, rsq_train,
             X_test,  rsq_test,
             num_epochs, batch_size, learning_rate)
+
+        self.save_model()
+
+    def save_model(self):
+        os.system('mkdir -p model')
+        torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
+        torch.save(self.net_var.state_dict(), 'model/net_var.pt')
+        self.x_scale.write('x_scale.json')
+        self.y_scale.write('y_scale.json')
+        save_model_args('MeanVarModel')
+        log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+        log_to_xarray(self.net_var.log_dict).to_netcdf('model/stats_var.nc')
+
+    def load_model(self):
+        if exists('model/net_mean.pt'):
+            print(f'reading MeanVarModel')
+            self.net_mean.load_state_dict(
+                torch.load('model/net_mean.pt', map_location='cpu'))
+            self.net_var.load_state_dict(
+                torch.load('model/net_var.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json')
+            self.y_scale = ChannelwiseScaler().read('y_scale.json')
 
     def generate_latent_noise(self, ny, nx):
         return np.random.randn(2, ny, nx)
