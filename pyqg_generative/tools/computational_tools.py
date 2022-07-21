@@ -51,7 +51,7 @@ def subgrid_scores(true, mean, gen):
         return float((1 - ((x-x_true)**2).mean(dims) / (x_true).var(dims)).mean())
     def L2(x, x_true):
         dims = [d for d in x.dims if d != 'lev']
-        return float( ((((x-x_true)**2).mean(dims) / x_true.var(dims))**0.5).mean() )
+        return float( ((((x-x_true)**2).mean(dims) / (x_true**2).mean(dims))**0.5).mean() )
     
     ds = xr.Dataset()
     # first compute R2 for each layer, and after that normalize

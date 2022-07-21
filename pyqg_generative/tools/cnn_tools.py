@@ -416,11 +416,13 @@ def train(net, X_train: np.array, Y_train:np. array,
             t-t_e, (t-t_s)*(num_epochs/(epoch+1)-1),
             net.log_dict['loss'][-1], net.log_dict['loss_test'][-1]))
 
-def apply_function(net, X: np.array, fun=None) -> np.array:
+def apply_function(net, *X, fun=None, **kw):
     '''
-    Apply forward function to array X of size
-    Nsamples x Nfeatures x Ny x Nx.
-    Returns predictions with similar size
+    X - numpy arrays of size Nbatch x Nfeatures x Ny x Nx.
+    fun - POINTWISE (in batch dimension) function to apply to X
+    kw - keyword arguments to pass to fun
+    returns: simple array or list of arrays
+    depending on the number of output arguments of fun
     '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
@@ -430,11 +432,21 @@ def apply_function(net, X: np.array, fun=None) -> np.array:
         fun = net.forward
     # stack batch predictions in a list
     preds = []
-    for x, in minibatch(X, batch_size=64, shuffle=False):
+    for x in minibatch(*X, batch_size=64, shuffle=False):
         with torch.no_grad():
-            y = fun(x.to(device))
-            preds.append(y.cpu().numpy())
+            xx = [xx.to(device) for xx in x]
+            y = fun(*xx, **kw)
+            y = [y] if not isinstance(y, tuple) else y
+            y = [yy.cpu().numpy() for yy in y]
+            preds.append(y)
+    net.train()
+    
+    # Change inner (outputs) and outer (batch) dimensions of list
+    preds = list(zip(*preds))
 
-    # stack list dimension to batch dimension
-    # Result has shape Nsamples x Nfeatures x Ny x Nx
-    return np.vstack(preds)
+    # Stack new inner (batch) dimension
+    preds = [np.vstack(pred) for pred in preds]
+
+    # Return numpy array if only one output    
+    preds = preds[0] if len(preds) == 1 else preds
+    return preds

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import xarray as xr
-import pyqg
 import torch.nn.functional as functional
 
 from pyqg_generative.tools.cnn_tools import AndrewCNN, train, \
