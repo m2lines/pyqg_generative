@@ -73,9 +73,9 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=1000*3600):
                 except KeyError:
                     out[key(op,nc)] = [ds]
     for key in out.keys():
-        out[key] = xr.concat(out[key], 'time')
-        out[key].attrs['pyqg_params'] = str(pyqg_params)
-        out[key].attrs.update(m.to_dataset().attrs)
+        out[key] = xr.concat(out[key], 'time'). \
+            assign_attrs({'pyqg_params': str(pyqg_params)}). \
+            assign_attrs(**m.to_dataset().attrs)
     return out
 
 def run_reference_simulation(pyqg_params, sampling_freq=1000*3600):
