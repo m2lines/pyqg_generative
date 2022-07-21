@@ -17,7 +17,15 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self):
+    def __init__(self, regression='None'):
+        '''
+        Regression parameter:
+        'None': predict full subgrid forcing
+        'full_loss': predict residual of subgrid forcing, 
+        but loss function is the same as in initial problem
+        'residual_loss': predict residual of subgrid forcing, 
+        but loss function is for residual
+        '''
         # 2 Input layers of q
         n_in = 2
         # 2 Input layers of noise
@@ -25,10 +33,14 @@ class CGANRegression(Parameterization):
         # 2 Output layers of q_forcing_advection
         n_out = 2
 
+        self.regression = regression
+
         self.G = AndrewCNN(n_in+self.n_latent,n_out)
         # Note minibatch discrimination (2*n_out)
         self.D = DCGAN_discriminator(n_in+2*n_out, bn='None')
-        self.mean = AndrewCNN(n_in, n_out)
+
+        if regression != 'None':
+            self.net_mean = AndrewCNN(n_in, n_out)
 
         self.G.apply(weights_init)
         self.D.apply(weights_init)
@@ -39,15 +51,14 @@ class CGANRegression(Parameterization):
         X_train, Y_train, X_test, Y_test, self.x_scale, self.y_scale = \
             prepare_PV_data(ds_train, ds_test)
         
-        train(self.mean,
-            X_train, Y_train,
-            X_test, Y_test,
-            num_epochs, 64, 0.001)
-        
-        Y_mean = apply_function(self.mean, X_train)
-        
+        if self.regression != 'None':
+            train(self.net_mean,
+                X_train, Y_train,
+                X_test, Y_test,
+                num_epochs, batch_size, 0.001)
+            
         train_CGAN(self, ds_train, ds_test,
-            X_train, Y_train, Y_mean, num_epochs, batch_size, learning_rate, 
+            X_train, Y_train, num_epochs, batch_size, learning_rate, 
             nruns)
 
     def generate(self, x, z=None):
@@ -69,19 +80,22 @@ class CGANRegression(Parameterization):
     
     def predict_snapshot(self, m, noise):
         X = self.x_scale.normalize(m.q.astype('float32'))
-        return self.y_scale.denormalize(
-            apply_function(self.G, X, noise, fun=self.generate) +
-            apply_function(self.mean, X)
-        ).squeeze().astype('float64')
+        Y = apply_function(self.G, X, noise, fun=self.generate)
+        if self.regression != 'None':
+            Y += apply_function(self.net_mean, X)
+        return self.y_scale.denormalize(Y).squeeze().astype('float64')
     
-    def predict(self, ds, M=100):
+    def predict(self, ds, M=1000):
         X = self.x_scale.normalize(extract(ds, 'q'))
         Y, mean, var = apply_function(self.G, X, fun=self.generate_mean_var, M=M)
-        Y_mean = apply_function(self.mean, X)
+        if self.regression != 'None':
+            mean_correction = apply_function(self.net_mean, X)
+            Y += mean_correction
+            mean += mean_correction
 
-        Y = xr.DataArray(self.y_scale.denormalize(Y+Y_mean).reshape(ds.q.shape),
+        Y = xr.DataArray(self.y_scale.denormalize(Y).reshape(ds.q.shape),
             dims=['run', 'time', 'lev', 'y', 'x'])
-        mean = xr.DataArray(self.y_scale.denormalize(mean+Y_mean).reshape(ds.q.shape),
+        mean = xr.DataArray(self.y_scale.denormalize(mean).reshape(ds.q.shape),
             dims=['run', 'time', 'lev', 'y', 'x'])
         var = xr.DataArray(self.y_scale.denormalize_var(var).reshape(ds.q.shape),
             dims=['run', 'time', 'lev', 'y', 'x'])
@@ -145,7 +159,7 @@ def loss_to_xarray(optim_loss, log_train, log_test):
     return ds, int(Epoch_opt)
 
 def train_CGAN(net, ds_train, ds_test,
-    X_train, Y_train, Y_mean,
+    X_train, Y_train,
     num_epochs, batch_size, learning_rate, nruns=5):
     '''
     net - an instance of class CGANModel
@@ -153,6 +167,11 @@ def train_CGAN(net, ds_train, ds_test,
     datasets to evaluate prediction on the fly
     '''
     os.system('mkdir -p checkpoints')
+
+    if net.regression != 'None':
+        Y_mean = apply_function(net.net_mean, X_train)
+    else:
+        Y_mean = 0*Y_train
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.G.to(device); net.D.to(device)
@@ -180,10 +199,16 @@ def train_CGAN(net, ds_train, ds_test,
         for i, (x,y,ymean) in enumerate(minibatch(X_train, Y_train, Y_mean, batch_size=batch_size)):
             xtrue = x.to(device)
             ytrue = y.to(device)
+            if net.regression == 'residual_loss':
+                ytrue -= ymean.to(device)
 
             net.D.zero_grad()
-            yfake1 = net.generate(xtrue) + ymean.to(device)
-            yfake2 = net.generate(xtrue) + ymean.to(device)
+            yfake1 = net.generate(xtrue)
+            yfake2 = net.generate(xtrue)
+
+            if net.regression == 'full_loss':
+                yfake1 += ymean.to(device)
+                yfake2 += ymean.to(device)
 
             Dtrue1 = net.D(torch.cat([xtrue, ytrue, yfake2.detach()], dim=1))
             Dtrue2 = net.D(torch.cat([xtrue, yfake1.detach(), ytrue], dim=1))
