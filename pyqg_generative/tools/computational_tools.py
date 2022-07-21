@@ -60,13 +60,13 @@ def subgrid_scores(true, mean, gen):
 
     sp = spectrum(time=slice(None,None)) # power spectrum for full time slice
 
-    ds['sp_true'] = sp(true).astype('float64')
-    ds['sp_gen'] = sp(gen).astype('float64')
+    ds['sp_true'] = sp(true)
+    ds['sp_gen'] = sp(gen)
     ds['R2_total'] = R2(ds.sp_gen, ds.sp_true)
     ds['L2_total'] = L2(ds.sp_gen, ds.sp_true)
     
-    ds['sp_true_res'] = sp(true-mean).astype('float64')
-    ds['sp_gen_res'] = sp(gen-mean).astype('float64')
+    ds['sp_true_res'] = sp(true-mean)
+    ds['sp_gen_res'] = sp(gen-mean)
     ds['R2_residual'] = R2(ds.sp_gen_res, ds.sp_true_res)
     ds['L2_residual'] = L2(ds.sp_gen_res, ds.sp_true_res)
 

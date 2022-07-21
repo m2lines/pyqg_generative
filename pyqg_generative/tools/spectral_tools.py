@@ -54,10 +54,10 @@ class spectrum():
             for z in [0,1]:
                 k, sp = calc_ispec(m, af2[z,:,:], averaging=self.averaging, 
                     truncate=self.truncate)
-                sp_list.append(sp.astype('float32')) # as power spectral density
+                sp_list.append(sp) # as power spectral density
 
             sp = xr.DataArray(np.stack(sp_list, axis=0), dims=['lev', 'k'], 
-                coords=[x[0].lev, coord(k, 'isotropic wavenumber, $m^{-1}$')],
+                coords=[('lev', [1,2]), coord(k, 'isotropic wavenumber, $m^{-1}$')],
                 attrs={'long_name': name, 'description': description, 'units': units})
         elif self.type == 'cross_layer':
             k, sp = calc_ispec(m, af2[:,:], averaging=self.averaging, 
@@ -87,7 +87,7 @@ class spectrum():
 
         sp = self.isotropize(af2, *x, name=name, description=description, units=units)
 
-        self.test(sp, *x)
+        #self.test(sp, *x)
 
         return sp
 
