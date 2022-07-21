@@ -18,7 +18,7 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='None'):
+    def __init__(self, regression='full_loss'):
         '''
         Regression parameter:
         'None': predict full subgrid forcing

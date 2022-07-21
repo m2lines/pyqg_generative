@@ -12,7 +12,8 @@ class CustomDict(dict):
 
 DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
-    'hours': 48, 'job-name': 'pyqg_generative', 'gres': 'gpu', 'mail': 'NONE'})
+    'hours': 48, 'job-name': 'pyqg_generative', 'gres': 'gpu', 
+    'output': 'out.slurm', 'mail': 'NONE'})
 
 def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
     '''
@@ -34,7 +35,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --time='+hpc['hours']+':00:00',
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
-        '#SBATCH --output='+os.path.join(folder, 'out.slurm'),
+        '#SBATCH --output='+os.path.join(folder, hpc['output']),
         '#SBATCH --error='+os.path.join(folder, 'err.slurm'),
         '#SBATCH --mail-user=pp2681@nyu.edu',
         '#SBATCH --mail-type='+hpc['mail'],
@@ -81,7 +82,3 @@ def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS, delete
 
     create_slurm(folder, script_py, hpc, args)
     os.system('cd '+folder+'; sbatch launcher.sub')
-
-
-#run_experiment('/scratch/pp2681/pyqg_generative/trivial_stochastic', 
-#    '/home/pp2681/pyqg_generative/scripts/test_parameterization.py', DEFAULT_HPC._update({'gres':'NONE'}))
