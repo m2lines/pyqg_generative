@@ -123,11 +123,11 @@ class AndrewCNN(nn.Module):
         '''
         return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
 
-def DCGAN_discriminator(in_channels, ndf=64, bn='BatchNorm'):
+def DCGAN_discriminator(in_channels, ndf=64, nx=64, bn='BatchNorm'):
     '''
     in_channels - number of images to compare
     ndf - some free parameter. Simpler to fix
-    Discriminator is supposed to take as input images of 64x64
+    Discriminator is supposed to take as input images of nx x nx
     Discriminator from tutorial DCGAN:
     https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
     Note that sigmoid is removed in favor to better generalizability
@@ -153,7 +153,7 @@ def DCGAN_discriminator(in_channels, ndf=64, bn='BatchNorm'):
             batch_norm(bn, ndf * 8, 4, 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            nn.Conv2d(ndf * 8, 1, int(nx/64*4), 1, 0, bias=False),
         )
     return model
 

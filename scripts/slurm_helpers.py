@@ -52,8 +52,11 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         These quotes allows to robustly pass sophisticated
         str arguments, such as str(dict)
         '''
+        if isinstance(s, dict):
+            s = str(s)
+
         if isinstance(s, str):
-            return "\\\"" + str(s) + "\\\""
+            return "\\\"" + s + "\\\""
         else:
             return str(s)
     for key in args.keys():

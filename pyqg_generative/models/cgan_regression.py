@@ -18,7 +18,7 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='full_loss'):
+    def __init__(self, regression='full_loss', nx=64):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -35,10 +35,11 @@ class CGANRegression(Parameterization):
         n_out = 2
 
         self.regression = regression
+        self.nx = nx
 
         self.G = AndrewCNN(n_in+self.n_latent,n_out)
         # Note minibatch discrimination (2*n_out)
-        self.D = DCGAN_discriminator(n_in+2*n_out, bn='None')
+        self.D = DCGAN_discriminator(n_in+2*n_out, bn='None', nx=nx)
 
         if regression != 'None':
             self.net_mean = AndrewCNN(n_in, n_out)
@@ -86,7 +87,7 @@ class CGANRegression(Parameterization):
             torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
         self.x_scale.write('x_scale.json')
         self.y_scale.write('y_scale.json')
-        save_model_args('CGANRegression', regression=self.regression)
+        save_model_args('CGANRegression', regression=self.regression, nx=self.nx)
 
     def load_model(self):
         if exists('model/G.pt'):
