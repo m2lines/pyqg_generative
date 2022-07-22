@@ -4,7 +4,24 @@ import torch.optim as optim
 import numpy as np
 import random
 import xarray as xr
+import json
 from time import time
+from pyqg_generative.tools.operators import coord
+
+def log_to_xarray(log_dict):
+    anykey = list(log_dict.keys())[0]
+    num_epochs = len(log_dict[anykey])
+    epoch = coord(np.arange(1, num_epochs+1), 'epoch')
+    for key in log_dict.keys():
+        log_dict[key] = xr.DataArray(log_dict[key], dims='epoch', coords=[epoch])
+        
+    return xr.Dataset(log_dict)
+
+def save_model_args(model, **kw):
+    d = dict(model=model)
+    d = {**d, **kw}
+    with open('model/model_args.json', 'w') as file:
+        json.dump(d, file)
 
 def init_seeds():
     '''
@@ -106,11 +123,11 @@ class AndrewCNN(nn.Module):
         '''
         return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
 
-def DCGAN_discriminator(in_channels, ndf=64, bn='BatchNorm'):
+def DCGAN_discriminator(in_channels, ndf=64, nx=64, bn='BatchNorm'):
     '''
     in_channels - number of images to compare
     ndf - some free parameter. Simpler to fix
-    Discriminator is supposed to take as input images of 64x64
+    Discriminator is supposed to take as input images of nx x nx
     Discriminator from tutorial DCGAN:
     https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html
     Note that sigmoid is removed in favor to better generalizability
@@ -136,9 +153,34 @@ def DCGAN_discriminator(in_channels, ndf=64, bn='BatchNorm'):
             batch_norm(bn, ndf * 8, 4, 4),
             nn.LeakyReLU(0.2, inplace=True),
             # state size. (ndf*8) x 4 x 4
-            nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+            nn.Conv2d(ndf * 8, 1, int(nx/64*4), 1, 0, bias=False),
         )
     return model
+
+def extract(ds, key):
+    var = ds[key].values
+    return var.reshape(-1,*var.shape[2:])
+
+def prepare_PV_data(ds_train, ds_test):
+    '''
+    Extract Potential vorticity as input ('q')
+    and subgrid PV forcing ('q_forcing_advection')
+    as output, and normalizes data
+    '''
+    X_train = extract(ds_train, 'q')
+    Y_train = extract(ds_train, 'q_forcing_advection')
+    X_test = extract(ds_test, 'q')
+    Y_test = extract(ds_test, 'q_forcing_advection')
+
+    x_scale = ChannelwiseScaler(X_train)
+    y_scale = ChannelwiseScaler(Y_train)
+
+    X_train = x_scale.normalize(X_train)
+    X_test = x_scale.normalize(X_test)
+    Y_train = y_scale.normalize(Y_train)
+    Y_test = y_scale.normalize(Y_test)
+
+    return X_train, Y_train, X_test, Y_test, x_scale, y_scale
 
 def extract_arrays(ds: xr.DataArray, features: list[str], lev=slice(0,2)):
     '''
@@ -218,14 +260,16 @@ class ChannelwiseScaler:
     Class containing std and mean
     values for each channel
     '''
-    def __init__(self, X: np.array):
+    def __init__(self, X=None):
         ''' 
         Stores std and mean values.
-        X is array of size
+        X is numpy array of size
         Nbatch x Nfeatures x Ny x Nx.
         '''
-        self.mean = channelwise_mean(X)
-        self.std  = channelwise_std(X)
+        if X is not None:
+            self.mean = channelwise_mean(X)
+            self.std  = channelwise_std(X)
+
     def direct(self, X):
         '''
         Remove mean and normalize
@@ -252,6 +296,17 @@ class ChannelwiseScaler:
         use for quadratic variables
         '''
         return X * (self.std**2)
+    def write(self, name):
+        to_str = lambda x: str(x.tolist())
+        with open(f'model/{name}', 'w') as file:
+            json.dump(dict(mean=to_str(self.mean), std=to_str(self.std)), file)
+    def read(self, name):
+        to_numpy = lambda x: np.array(eval(x)).astype('float32')
+        with open(f'model/{name}') as file:
+            d = json.load(file)
+            self.std = to_numpy(d['std'])
+            self.mean = to_numpy(d['mean'])
+        return self
 
 class AverageLoss():
     '''
@@ -356,11 +411,8 @@ def train(net, X_train: np.array, Y_train:np. array,
     '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
-    print(f"Training starts on device {device}, number of samples {len(X_train)}")
-    try:
-        print('CUDA device = ', torch.cuda.get_device_name(0))
-    except:
-        pass
+    device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    print(f"Training starts on device {device_name}, number of samples {len(X_train)}")
 
     # Switch batchnorm2d layer to training mode
     net.train()
@@ -394,23 +446,37 @@ def train(net, X_train: np.array, Y_train:np. array,
             t-t_e, (t-t_s)*(num_epochs/(epoch+1)-1),
             net.log_dict['loss'][-1], net.log_dict['loss_test'][-1]))
 
-def apply_function(net, fun, X: np.array) -> np.array:
+def apply_function(net, *X, fun=None, **kw):
     '''
-    Apply forward function to array X of size
-    Nsamples x Nfeatures x Ny x Nx.
-    Returns predictions with similar size
+    X - numpy arrays of size Nbatch x Nfeatures x Ny x Nx.
+    fun - POINTWISE (in batch dimension) function to apply to X
+    kw - keyword arguments to pass to fun
+    returns: simple array or list of arrays
+    depending on the number of output arguments of fun
     '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
     net.eval()
 
+    if fun is None:
+        fun = net.forward
     # stack batch predictions in a list
     preds = []
-    for x, in minibatch(X, batch_size=64, shuffle=False):
+    for x in minibatch(*X, batch_size=64, shuffle=False):
         with torch.no_grad():
-            y = fun(x.to(device))
-            preds.append(y.cpu().numpy())
+            xx = [xx.to(device) for xx in x]
+            y = fun(*xx, **kw)
+            y = [y] if not isinstance(y, tuple) else y
+            y = [yy.cpu().numpy() for yy in y]
+            preds.append(y)
+    net.train()
+    
+    # Change inner (outputs) and outer (batch) dimensions of list
+    preds = list(zip(*preds))
 
-    # stack list dimension to batch dimension
-    # Result has shape Nsamples x Nfeatures x Ny x Nx
-    return np.vstack(preds)
+    # Stack new inner (batch) dimension
+    preds = [np.vstack(pred) for pred in preds]
+
+    # Return numpy array if only one output    
+    preds = preds[0] if len(preds) == 1 else preds
+    return preds
