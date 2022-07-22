@@ -57,7 +57,7 @@ class spectrum():
                 sp_list.append(sp) # as power spectral density
 
             sp = xr.DataArray(np.stack(sp_list, axis=0), dims=['lev', 'k'], 
-                coords=[('lev', [1,2]), coord(k, 'isotropic wavenumber, $m^{-1}$')],
+                coords=[m.to_dataset().lev, coord(k, 'isotropic wavenumber, $m^{-1}$')],
                 attrs={'long_name': name, 'description': description, 'units': units})
         elif self.type == 'cross_layer':
             k, sp = calc_ispec(m, af2[:,:], averaging=self.averaging, 

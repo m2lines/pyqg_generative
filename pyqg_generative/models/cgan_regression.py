@@ -189,11 +189,9 @@ def loss_to_xarray(optim_loss, log_train, log_test):
     ds.update(xr.concat(log_test, dim='epoch').rename(
         dict(L2_mean='L2_mean_test', L2_total='L2_total_test', 
         L2_residual='L2_residual_test')))
-    loss = ds.L2_mean_test + ds.L2_total_test + ds.L2_residual_test
-    ds['loss'] = loss
-    Epoch_opt = loss.idxmin()
+    ds['loss'] = ds.L2_total_test + ds.L2_residual_test
+    Epoch_opt = (ds.loss).idxmin()
     ds['Epoch_opt'] = Epoch_opt
-    ds['loss_opt'] = loss.sel(epoch=Epoch_opt)
     return ds, int(Epoch_opt)
 
 def train_CGAN(net, ds_train, ds_test,

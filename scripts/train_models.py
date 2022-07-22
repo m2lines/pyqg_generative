@@ -5,9 +5,9 @@ def job_name(model, operator, resolution):
       '-' + dict(OLSModel='ls', CGANRegression='gan', MeanVarModel='gz')[model] + \
       '-' + str(resolution)
 
-for resolution in [32, 48, 96]:
+for resolution in [32, 48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['CGANRegression']:#['OLSModel', 'MeanVarModel', 'CGANRegression']:
+        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression']:
             _operator = operator+'-'+str(resolution)
             train_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/' + _operator + '/*.nc'
             transfer_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/jet/' + _operator + '/*.nc'

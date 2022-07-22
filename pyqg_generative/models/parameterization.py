@@ -140,4 +140,6 @@ class Parameterization(pyqg.QParameterization):
                 preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
                     attrs={'long_name': 'subgrid forcing residual PDF'})
 
+        # Fix issue with coordinates
+        preds['time'] = ds['time'].copy(deep=True)
         return preds.astype('float32')

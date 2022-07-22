@@ -24,5 +24,9 @@ transfer = xr.open_mfdataset(args.transfer_path, combine='nested', concat_dim='r
 model = eval(args.model)(**eval(args.model_args))
 model.fit(train, validate, **eval(args.fit_args))
 
+del train, validate
+
 model.test_offline(test).to_netcdf('offline_test.nc')
 model.test_offline(transfer).to_netcdf('offline_transfer.nc')
+
+del ds, test, transfer
