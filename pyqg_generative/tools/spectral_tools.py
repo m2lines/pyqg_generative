@@ -68,11 +68,18 @@ class spectrum():
                 attrs={'long_name': name, 'description': description, 'units': units})
         return sp
     
-    def __call__(self, *x, name='', description='', units=''):
+    def __call__(self, *_x, name='', description='', units=''):
         '''
         *x - list of xarray tensors,
         nrun x ntime x nlev x Ny x Nx
         '''
+        x = []
+        for xx in _x:
+            if 'run' not in xx.dims:
+                x.append(xx.expand_dims('run'))
+            else:
+                x.append(xx)
+
         if self.type == 'power':
             af2 = np.abs(self.fft2d(x[0]))**2
         elif self.type == 'energy':
