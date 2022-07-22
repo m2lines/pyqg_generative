@@ -13,7 +13,7 @@ class CustomDict(dict):
 DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
     'hours': 48, 'job-name': 'pyqg_generative', 'gres': 'gpu', 
-    'output': 'out.slurm', 'mail': 'NONE'})
+    'output': 'out.slurm', 'error': 'err.slurm', 'mail': 'NONE'})
 
 def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
     '''
@@ -36,7 +36,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
         '#SBATCH --output='+os.path.join(folder, hpc['output']),
-        '#SBATCH --error='+os.path.join(folder, 'err.slurm'),
+        '#SBATCH --error='+os.path.join(folder, hpc['error']),
         '#SBATCH --mail-user=pp2681@nyu.edu',
         '#SBATCH --mail-type='+hpc['mail'],
         'module purge'
