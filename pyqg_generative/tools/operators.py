@@ -51,12 +51,16 @@ def array_format(func):
             dims = [dim for dim in X.dims if dim not in ['x', 'y']]
             coords = [X[dim] for dim in dims]
             if func.__name__ in map(lambda x: x.__name__, [coarsegrain, cut_off]):
-                ratio = len(X.x) // nc
-                Y = 0*X.coarsen(x=ratio, y=ratio).mean()
+                Y = xr.DataArray(np.zeros([len(c) for c in coords] + [nc, nc]), dims=dims+['y', 'x'])
+                for dim in dims:
+                    Y[dim] = X[dim]
+                m = pyqg.QGModel(nx=nc, log_level=0).to_dataset()
+                for dim in ['x', 'y']:
+                    Y[dim] = m[dim]
             else:
                 Y = 0*X
-            for coords in itertools.product(*coords):
-                Y.loc[coords] = func(X.loc[coords].values, nc)
+            for c in itertools.product(*coords):
+                Y.loc[c] = func(X.loc[c].values, nc)
             return Y
         else:
             raise ValueError('input should be numpy array or xarray')
