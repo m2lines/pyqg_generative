@@ -137,6 +137,9 @@ def total_score(similarity_instance):
     '''
     return 0.5 * (distrib_score(similarity_instance) 
         + spectral_score(similarity_instance))
+        
+def KEspec_score(similarity_instance):
+    return (similarity_instance['spectral_diff_KEspec1'] + similarity_instance['spectral_diff_KEspec2']) * 0.5
 
 def score_for_model(similarity, loss_function, resolution, operator, model,
     Sampling=['AR1', 'constant'], Decorrelation = [0, 12, 24, 36, 48], 
