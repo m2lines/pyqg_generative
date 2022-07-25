@@ -6,6 +6,28 @@ import pyqg
 
 import pyqg_generative.tools.operators as op
 
+DISTRIB_KEYS = [
+    'distrib_diff_q1',
+    'distrib_diff_q2',
+    'distrib_diff_u1',
+    'distrib_diff_u2',
+    'distrib_diff_v1',
+    'distrib_diff_v2',
+    'distrib_diff_KE1',
+    'distrib_diff_KE2',
+    'distrib_diff_Ens1',
+    'distrib_diff_Ens2'
+]
+
+SPECTRAL_KEYS = [
+    'spectral_diff_KEspec1',
+    'spectral_diff_KEspec2',
+    'spectral_diff_KEflux',
+    'spectral_diff_APEflux',
+    'spectral_diff_APEgenspec',
+    'spectral_diff_KEfrictionspec'
+]
+
 def folder_iterator(
     return_blowup=False, return_reference=False,
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
@@ -101,3 +123,62 @@ def coarsegrain_reference_dataset(ds, resolution, operator):
             filtr = np.exp(-k2 * (2*dx)**2 / 24)
             dsf[var] = dsf[var] * filtr * filtr
     return dsf
+
+def distrib_score(similarity_instance):
+    return np.mean(list({k:v for k,v in similarity_instance.items() if k in DISTRIB_KEYS}.values()))
+
+def spectral_score(similarity_instance):
+    return np.mean(list({k:v for k,v in similarity_instance.items() if k in SPECTRAL_KEYS}.values()))
+
+def total_score(similarity_instance):
+    '''
+    To be used as loss_function in finding best
+    models
+    '''
+    return 0.5 * (distrib_score(similarity_instance) 
+        + spectral_score(similarity_instance))
+
+def score_for_model(similarity, loss_function, resolution, operator, model,
+    Sampling=['AR1', 'constant'], Decorrelation = [0, 12, 24, 36, 48], 
+    configuration='eddy'):
+    '''
+    similarity - dict with keys of format 'Operator1-64/MeanVarModel/eddy-AR1-12',
+    containing dictionary of distributional and spectral keys (DISTRIB_KEY and SPECTRAL_KEY)
+
+    Returns dict of time sampling schemes with computed score
+    '''
+
+    keys = [
+        operator + '-' + str(resolution) + '/' + model + '/' + configuration + '-' + sampling + '-' + str(decorrelation)
+        for sampling in Sampling
+        for decorrelation in Decorrelation
+    ]
+
+    return {key:loss_function(similarity[key]) for key in keys if key in similarity.keys()}
+
+
+def best_time_sampling(similarity, loss_function,
+    Resolution = [48, 64, 96],
+    Operator = ['Operator1', 'Operator2'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
+    Sampling = ['AR1', 'constant'],
+    Decorrelation = [0, 12, 24, 36, 48],
+    configuration = 'eddy'):
+    '''
+    loss_function is a scalar-valued function
+    of similarity dictionary
+    '''
+
+    loss_similarity = {key:loss_function(similarity[key]) for key in similarity.keys()}
+
+    for resolution in Resolution:
+        for operator in Operator:
+            for model in Model:
+                keys = [
+                    operator + '-' + str(resolution) + '/' + model + '/' + configuration + '-' + sampling + '-' + str(decorrelation)
+                    for sampling in Sampling
+                    for decorrelation in Decorrelation
+                ]
+                model_dict = {key:loss_similarity[key] for key in keys if key in similarity.keys()}
+                #https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
+                return model_dict#max(model_dict, key=model_dict.get)
