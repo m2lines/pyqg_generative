@@ -7,7 +7,7 @@ import pyqg
 import pyqg_generative.tools.operators as op
 
 def folder_iterator(
-    return_blowup=False,
+    return_blowup=False, return_reference=False,
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
@@ -32,11 +32,17 @@ def folder_iterator(
                             subfolder = configuration + '-' + sampling + '-' + str(decorrelation)
                             folder = folder + '/' + subfolder
                             nfiles = len(glob.glob(os.path.join(folder, '*.nc')))
-                            if return_blowup:
-                                yield folder
+                            if not return_blowup:
+                                if nfiles != 10:
+                                    continue
+                            
+                            if return_reference:
+                                reference = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/'+operator+'-'+str(resolution)+'.nc'
+                                key = _operator + '/' + model + '/' + subfolder
+                                baseline = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_'+str(resolution) + '/*.nc'
+                                yield folder, reference, baseline, key
                             else:
-                                if nfiles == 10:
-                                    yield folder
+                                yield folder
 
 def coarsegrain_reference_dataset(ds, resolution, operator):
     '''
@@ -66,7 +72,6 @@ def coarsegrain_reference_dataset(ds, resolution, operator):
 
     dsf = xr.Dataset()
     for var in ['q', 'u', 'v', 'psi']:
-        print('var = ', var)
         dsf[var] = operator(ds[var], resolution)
 
     # Coarsegrain spectral flux
