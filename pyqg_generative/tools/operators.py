@@ -152,6 +152,12 @@ def Operator2(X, nc):
 def Operator3(X, nc):
     return coarsegrain(gcm_filter(X, nc), nc)
 
+def Operator4(X, nc):
+    return model_filter(Operator2(X, nc))
+
+def Operator5(X, nc):
+    return cut_off(X, nc)
+
 def apply_operator_to_model(q, nc, operator, pyqg_params):
     '''
     Here q is numpy array of Nlev x Ny x Nx

@@ -32,8 +32,8 @@ def folder_iterator(
     return_blowup=False, return_reference=False,
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [48, 64, 96],
-    Operator = ['Operator1', 'Operator2'],
-    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
+    Operator = ['Operator1', 'Operator2', 'Operator4'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-None', 'CGANRegression-residual'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
     Configuration = ['eddy']
@@ -53,6 +53,8 @@ def folder_iterator(
                             folder = base_folder + _operator + '/' + model
                             subfolder = configuration + '-' + sampling + '-' + str(decorrelation)
                             folder = folder + '/' + subfolder
+                            if not os.path.exists(folder):
+                                continue
                             nfiles = len(glob.glob(os.path.join(folder, '*.nc')))
                             if not return_blowup:
                                 if nfiles != 10:
@@ -89,6 +91,8 @@ def coarsegrain_reference_dataset(ds, resolution, operator):
         operator = op.Operator1
     elif operator == 'Operator2':
         operator = op.Operator2
+    elif operator == 'Operator4':
+        operator = op.Operator4
     else:
         raise ValueError('operator must be Operator1 or Operator2')
 
