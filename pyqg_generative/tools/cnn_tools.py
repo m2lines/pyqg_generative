@@ -300,9 +300,9 @@ class ChannelwiseScaler:
         to_str = lambda x: str(x.tolist())
         with open(f'model/{name}', 'w') as file:
             json.dump(dict(mean=to_str(self.mean), std=to_str(self.std)), file)
-    def read(self, name):
+    def read(self, name, folder='model'):
         to_numpy = lambda x: np.array(eval(x)).astype('float32')
-        with open(f'model/{name}') as file:
+        with open(f'{folder}/{name}') as file:
             d = json.load(file)
             self.std = to_numpy(d['std'])
             self.mean = to_numpy(d['mean'])

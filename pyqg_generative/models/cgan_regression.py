@@ -18,7 +18,7 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='full_loss', nx=64):
+    def __init__(self, regression='full_loss', nx=64, folder='model'):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -47,7 +47,7 @@ class CGANRegression(Parameterization):
         self.G.apply(weights_init)
         self.D.apply(weights_init)
 
-        self.load_model()
+        self.load_model(folder)
     
     def fit(self, ds_train, ds_test, num_epochs=50, num_epochs_regression=50, 
         batch_size=64, learning_rate=2e-4, nruns=5):
@@ -89,18 +89,18 @@ class CGANRegression(Parameterization):
         self.y_scale.write('y_scale.json')
         save_model_args('CGANRegression', regression=self.regression, nx=self.nx)
 
-    def load_model(self):
-        if exists('model/G.pt'):
-            print(f'reading CGANRegression model')
+    def load_model(self, folder):
+        if exists(f'{folder}/G.pt'):
+            print(f'reading CGANRegression from {folder}')
             self.G.load_state_dict(
-                torch.load('model/G.pt', map_location='cpu'))
+                torch.load(f'{folder}/G.pt', map_location='cpu'))
             self.D.load_state_dict(
-                torch.load('model/D.pt', map_location='cpu'))
+                torch.load(f'{folder}/D.pt', map_location='cpu'))
             if self.regression != 'None':
                 self.net_mean.load_state_dict(
-                    torch.load('model/net_mean.pt', map_location='cpu'))
-            self.x_scale = ChannelwiseScaler().read('x_scale.json')
-            self.y_scale = ChannelwiseScaler().read('y_scale.json')
+                    torch.load(f'{folder}/net_mean.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
+            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
 
     def generate(self, x, z=None):
         dims = (x.shape[0], self.n_latent, x.shape[2], x.shape[3])
@@ -115,6 +115,13 @@ class CGANRegression(Parameterization):
         yfake = torch.stack(y, dim=0)
 
         return yfake[0], yfake.mean(dim=0), yfake.var(dim=0)
+
+    def generate_ensemble(self, x, M):
+        y = []
+        for m in range(M):
+            y.append(self.generate(x))
+        yfake = torch.stack(y, dim=0)
+        return yfake
     
     def generate_latent_noise(self, ny, nx):
         return np.random.randn(1, self.n_latent, ny, nx).astype('float32')
@@ -143,7 +150,13 @@ class CGANRegression(Parameterization):
 
         return xr.Dataset({'q_forcing_advection': Y, 
             'q_forcing_advection_mean': mean, 'q_forcing_advection_var': var})
+    
+    def predict_ensemble(self, ds, M=1000):
+        X = self.x_scale.normalize(extract(ds, 'q'))
+        Y = apply_function(self.G, X, fun=self.generate_ensemble, M=M)
 
+        return Y
+        
 def gradient_penalty(net, xtrue, ytrue, yfake1, 
     yfake2):
     batch_size = xtrue.shape[0]
