@@ -3,7 +3,7 @@ import numpy as np
 import pyqg
 import json 
 
-from pyqg_generative.tools.operators import Operator1, Operator2, PV_subgrid_forcing
+from pyqg_generative.tools.operators import Operator1, Operator2, Operator4, PV_subgrid_forcing
 from pyqg_generative.tools.parameters import ANDREW_1000_STEPS
 from pyqg_generative.tools.stochastic_pyqg import stochastic_QGModel
 from pyqg_generative.models.ols_model import OLSModel
@@ -67,7 +67,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
     out = {}
     for t in m.run_with_snapshots(tsnapint=sampling_freq):
         qdns = m.q
-        for op in [Operator1, Operator2]:
+        for op in [Operator1, Operator2, Operator4]:
             for nc in Nc:
                 forcing, mf = PV_subgrid_forcing(qdns, nc, op, pyqg_params)
                 mf = mf.to_dataset()

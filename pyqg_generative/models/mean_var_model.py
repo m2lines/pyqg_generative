@@ -21,14 +21,14 @@ class MeanVarModel(Parameterization):
     Model predicting pointwise conditional mean and variance
     https://arxiv.org/pdf/1811.05910.pdf
     '''
-    def __init__(self):
+    def __init__(self, folder='model'):
         super().__init__()
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
         self.net_mean = AndrewCNN(2,2)
         self.net_var = VarCNN(2,2)
 
-        self.load_model()
+        self.load_model(folder)
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
         batch_size=64, learning_rate=0.001):
@@ -64,15 +64,15 @@ class MeanVarModel(Parameterization):
         log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
         log_to_xarray(self.net_var.log_dict).to_netcdf('model/stats_var.nc')
 
-    def load_model(self):
-        if exists('model/net_mean.pt'):
-            print(f'reading MeanVarModel')
+    def load_model(self, folder):
+        if exists(f'{folder}/net_mean.pt'):
+            print(f'reading MeanVarModel from {folder}')
             self.net_mean.load_state_dict(
-                torch.load('model/net_mean.pt', map_location='cpu'))
+                torch.load(f'{folder}/net_mean.pt', map_location='cpu'))
             self.net_var.load_state_dict(
-                torch.load('model/net_var.pt', map_location='cpu'))
-            self.x_scale = ChannelwiseScaler().read('x_scale.json')
-            self.y_scale = ChannelwiseScaler().read('y_scale.json')
+                torch.load(f'{folder}/net_var.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
+            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
 
     def generate_latent_noise(self, ny, nx):
         return np.random.randn(2, ny, nx)
