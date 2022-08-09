@@ -11,10 +11,13 @@ def PDF_histogram(x, xmin=None, xmax=None, Nbins=30):
     """    
     N = x.shape[0]
 
-    if xmin is None or xmax is None:
-        mean = x.mean()
-        sigma = x.std()
-        xmin = mean-4*sigma; xmax = mean+4*sigma
+    mean = x.mean()
+    sigma = x.std()
+    
+    if xmin is None:
+        xmin = mean-4*sigma
+    if xmax is None:
+        xmax = mean+4*sigma
 
     bandwidth = (xmax - xmin) / Nbins
     

@@ -13,12 +13,14 @@ def job_name(*A):
         out += str(a)[0]
     return out
     
-for resolution in [48, 64, 96]:
+for resolution in [32, 48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
         for model in ['OLSModel', 'MeanVarModel', 'CGANRegression']:
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
                 for decorrelation in [0, 12, 24, 36, 48]: # in hours; 0 means tau=dt
+                    if sampling=='constant' and decorrelation>0:
+                        continue
                     if model=='OLSModel' and sampling=='AR1':
                         continue
                     if sampling=='AR1' and decorrelation==0:
@@ -34,7 +36,7 @@ for resolution in [48, 64, 96]:
                             subfolder = name + '-' + sampling + '-' + str(decorrelation)
                             os.system('mkdir -p ' + model_folder + '/' + subfolder)
 
-                            hours = {48: 1, 64: 2, 96: 10}[resolution]
+                            hours = {32:1, 48: 1, 64: 2, 96: 10}[resolution]
     
                             hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 'hours': hours, 
                                 'job-name': job_name(resolution, operator, model, sampling, decorrelation, ens), 
