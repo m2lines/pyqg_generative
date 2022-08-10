@@ -218,7 +218,7 @@ def cache_path(path):
 def dataset_smart_read(path, delta=0.25, read_cache=True):
     cache = cache_path(path)
     if os.path.exists(cache) and read_cache:
-        print('Read cache ' + cache)
+        #print('Read cache ' + cache)
         ds1 = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False)
         ds2 = xr.open_dataset(cache)
         ds1['time'] = ds1['time'] / 360
