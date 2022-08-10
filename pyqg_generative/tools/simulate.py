@@ -4,7 +4,7 @@ import pyqg
 import json 
 
 from pyqg_generative.tools.operators import Operator1, Operator2, Operator4, PV_subgrid_forcing
-from pyqg_generative.tools.parameters import ANDREW_1000_STEPS
+from pyqg_generative.tools.parameters import ANDREW_1000_STEPS, DAY
 from pyqg_generative.tools.stochastic_pyqg import stochastic_QGModel
 from pyqg_generative.models.ols_model import OLSModel
 from pyqg_generative.models.mean_var_model import MeanVarModel
@@ -86,7 +86,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
             assign_attrs(**m.to_dataset().attrs)
     return out
 
-def run_simulation(pyqg_params, parameterization=None,
+def run_simulation(pyqg_params, parameterization=None, q_init=None,
     sampling_freq=ANDREW_1000_STEPS):
     '''
     pyqg_params - only str-type parameters
@@ -94,6 +94,7 @@ def run_simulation(pyqg_params, parameterization=None,
     parameterization['self'] = class instance
     parameterization['sampling'] = 'AR1'
     parameterization['nsteps'] = 1
+    q_init - initial conditiona for PV, numpy array nlev*ny*nx
     '''
     if parameterization is None:
         m = pyqg.QGModel(**pyqg_params)
@@ -103,7 +104,13 @@ def run_simulation(pyqg_params, parameterization=None,
         m = stochastic_QGModel(params, parameterization['sampling'],
             parameterization['nsteps'])
 
-    ds = []
+    if q_init is not None:
+        m.q = q_init.astype('float64')
+        m._invert()
+        ds = [m.to_dataset()] # convenient to have IC saved
+    else:
+        ds = [] # for backward compatibility
+
     for t in m.run_with_snapshots(tsnapint=sampling_freq): 
         ds.append(m.to_dataset())
     
@@ -122,9 +129,11 @@ if __name__ ==  '__main__':
     parser.add_argument('--forcing', type=str, default="no")
     parser.add_argument('--reference', type=str, default="no")
     parser.add_argument('--parameterization', type=str, default="no")
+    parser.add_argument('--forecast', type=str, default="no")
     parser.add_argument('--subfolder', type=str, default="")
     parser.add_argument('--sampling', type=str, default="AR1")
     parser.add_argument('--nsteps', type=int, default=1)
+    parser.add_argument('--initial_condition', type=str, default="no")
     args = parser.parse_args()
     print(args)
     
@@ -157,3 +166,43 @@ if __name__ ==  '__main__':
         run_simulation(eval(args.pyqg_params), parameterization).to_netcdf(
             os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
         )
+
+    if args.forecast == 'yes':
+        if os.path.exists('model/model_args.json'):
+            with open('model/model_args.json') as file:
+                model_args = json.load(file)
+
+            model = eval(model_args.pop('model'))(**model_args)
+            parameterization = \
+                dict(self=model, sampling=args.sampling, nsteps=args.nsteps)
+        else:
+            parameterization = None
+
+        initial_condition = eval(args.initial_condition)
+        pyqg_params = eval(args.pyqg_params)
+        q_init = xr.open_mfdataset(initial_condition['path'], combine='nested', concat_dim='run').isel(initial_condition['selector']).q.values
+        try:
+            q_init = eval(initial_condition['operator'])(q_init, pyqg_params['nx'])
+            print('Operator is applied')
+        except:
+            pass
+        
+        print('q_init type = ', type(q_init))
+        print('q_init shape = ', q_init.shape)
+
+        ds = []
+        for j_ens in range(initial_condition['n_ens']):
+            print('Start ensemble member ', j_ens)
+            ds.append(run_simulation(pyqg_params, parameterization, q_init, 1*DAY)[['q', 'u', 'v', 'psi']])
+
+        print('Concat in runs ')
+        ds = xr.concat(ds, 'run')
+
+        print('Compute mean')
+        out = xr.Dataset()
+        for var in ['q', 'u', 'v', 'psi']:
+            out[var] = ds[var].isel(run=0)
+            out[var+'_mean'] = ds[var].mean('run')
+
+        print('Saving to file')
+        out.to_netcdf(os.path.join(args.subfolder, f'{initial_condition["number"]}.nc'))

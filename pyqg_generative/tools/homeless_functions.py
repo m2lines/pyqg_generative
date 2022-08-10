@@ -1,26 +1,3 @@
-    @timer
-    def test_online(self, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
-        nruns=5, sample_interval=ANDREW_1000_STEPS):
-        '''
-        Run ensemble of simulations with parameterization
-        and save statistics 
-        '''
-        delta = pyqg.QGModel(**pyqg_params).delta
-
-        params = pyqg_params.copy()
-        params['parameterization'] = self
-        
-        set_start_method('spawn', force=True)
-        with Pool(5) as pool:
-            pool.starmap(init_seeds, [()]*5)
-            datasets = pool.starmap(run_simulation, [(params, sampling_type, nsteps, sample_interval)]*nruns)
-        
-        out = concat_in_run(datasets, delta=delta, 
-            time=slice(params['tavestart'],None)).astype('float32')
-        out.attrs['pyqg_params'] = str(pyqg_params)
-        return out
-    
-    @timer
     def test_ensemble(self, ds: xr.Dataset, pyqg_params=EDDY_PARAMS, sampling_type='AR1', nsteps=1, 
         Tmax=90*DAY, output_sampling=1*DAY, ensemble_size=15, nruns=15):
         '''
@@ -66,22 +43,6 @@
         
         return out.astype('float32')
 
-def run_simulation(pyqg_params, sampling_type, nsteps,
-    sample_interval):
-    '''
-    Run model m with parameters pyqg_params
-    and saves snapshots every sample_interval seconds
-    Returns xarray.Dataset with snapshots and 
-    averaged statistics
-    '''
-    m = stochastic_QGModel(pyqg_params, sampling_type, nsteps)
-    
-    snapshots = []
-    for t in m.run_with_snapshots(tsnapint = sample_interval):
-        snapshots.append(m.to_dataset().copy(deep=True))
-
-    return concat_in_time(snapshots)
-
 def sample(ds, time=SAMPLE_SLICE, variable='q'):
     '''
     Recieves xr.Dataset and returns
@@ -96,57 +57,6 @@ def sample(ds, time=SAMPLE_SLICE, variable='q'):
             coordinate = {dim: np.random.choice(q[dim])}
             q = q.sel(coordinate)
     return q
-
-def concat_in_run(datasets, delta, time=AVERAGE_SLICE):
-    '''
-    Concatenation of runs:
-    - Computes 1D spectra 
-    - Computes PDFs
-    - Average statistics over runs
-
-    delta - H1/H2 layers height ratio, needed 
-    for vertical averaging
-    '''
-    ds = xr.concat(datasets, dim='run')
-
-    # Compute 1D spectra
-    m = pyqg.QGModel(nx=len(ds.x), log_level=0)
-    for key in ['APEflux', 'APEgenspec', 'Dissspec', 'ENSDissspec', 
-        'ENSflux', 'ENSfrictionspec', 'ENSgenspec', 'ENSparamspec', 
-        'Ensspec', 'KEflux', 'KEfrictionspec', 'KEspec', 'entspec', 
-        'paramspec', 'paramspec_APEflux', 'paramspec_KEflux']:
-        var = ave_lev(ds[key].mean(dim='run'), delta)
-
-        k, sp = calc_ispec(m, var.values, averaging=False, truncate=False)
-        sp = xr.DataArray(sp, dims=['kr'],
-            coords=[coord(k, 'isotropic wavenumber, $m^{-1}$')],
-            attrs=dict(long_name=ds[key].attrs['long_name'], units=ds[key].attrs['units']+' * m'))
-        ds[key+'r'] = sp
-
-    # Check that selector defined in SECONDS (but not indices) works
-    assert len(ds.time.sel(time=time)) < 3/4 * len(ds.time)
-    # There are snapshots for PDF
-    assert len(ds.time.sel(time=time)) > 1/4 * len(ds.time)
-
-    # Compute PDFs
-    x = ds.sel(time=time).isel(lev=0)['q'].values.ravel()
-    points, density = PDF_histogram(x, Nbins=100, xmin=-3e-5, xmax=3e-5)
-    ds['pdf_pv'] = xr.DataArray(density, dims=['pv'],
-        coords=[coord(points, 'potential vorticity, $s^{-1}$')],
-        attrs=dict(long_name='PDF of upper level PV'))
-    
-    KE = ave_lev(0.5*(ds.u**2 + ds.v**2), delta)
-    x = KE.sel(time=time).values.ravel()
-    points, density = PDF_histogram(x, Nbins=50, xmin=0, xmax=0.005)
-    ds['pdf_ke'] = xr.DataArray(density, dims=['ke'],
-        coords=[coord(points, 'kinetic energy, $m^2/s^2$')],
-        attrs=dict(long_name='PDF of depth-averaged KE'))
-
-    # Compute time-series
-    ds['KE'] = xr.DataArray(KE.mean(dim=('run', 'x', 'y')),
-        attrs=dict(long_name='depth-averaged kinetic energy, $m^2/s^2$'))
-
-    return ds
 
 def compute_highres_trajectories(ds, pyqg_params, Tmax=90*DAY, output_sampling=1*DAY, nruns=15):
     '''

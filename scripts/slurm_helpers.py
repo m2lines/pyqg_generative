@@ -32,7 +32,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --ntasks-per-node='+hpc['ntasks'],
         '#SBATCH --cpus-per-task='+hpc['cpus'],
         '#SBATCH --mem='+hpc['mem']+'GB',
-        '#SBATCH --time='+hpc['hours']+':00:00',
+        '#SBATCH --time='+hpc['hours']+':59:00',
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
         '#SBATCH --output='+os.path.join(folder, hpc['output']),
