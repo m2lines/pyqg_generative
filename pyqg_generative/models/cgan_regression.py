@@ -70,16 +70,16 @@ class CGANRegression(Parameterization):
     def save_model(self, optim_loss, log_train, log_test):
         stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
         stats.to_netcdf('model/stats.nc')
-        try:
+        if self.regression != 'None':
             log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
-        except:
-            pass
-        print('Optimal epoch is', epoch)
-        self.G.load_state_dict(torch.load(f'model/G_{epoch}.pt', map_location='cpu'))
-        self.D.load_state_dict(torch.load(f'model/D_{epoch}.pt', map_location='cpu'))
+            print('Read generator/discriminator from optimal epoch ', epoch)
+            self.G.load_state_dict(torch.load(f'model/G_{epoch}.pt', map_location='cpu'))
+            self.D.load_state_dict(torch.load(f'model/D_{epoch}.pt', map_location='cpu'))
+        else:
+            print('The Last epoch is used for prediction')
 
-        os.system('rm model/G_*.pt')
-        os.system('rm model/D_*.pt')
+        #os.system('rm model/G_*.pt')
+        #os.system('rm model/D_*.pt')
 
         torch.save(self.G.state_dict(), 'model/G.pt')
         torch.save(self.D.state_dict(), 'model/D.pt')

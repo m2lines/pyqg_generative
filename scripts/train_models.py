@@ -7,15 +7,17 @@ def job_name(model, operator, resolution):
 
 for resolution in [32, 48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['CGANRegression']:
+        for model, folder in zip(['CGANRegression'], ['CGANRegression-recompute']):
             _operator = operator+'-'+str(resolution)
             train_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/' + _operator + '/*.nc'
             transfer_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/jet/' + _operator + '/*.nc'
-            model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + 'CGANRegression-None-long'
+            model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + folder
             script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/train_model.py'
-            model_args = dict(nx=resolution, regression='None') if model=='CGANRegression' else {}
-            fit_args = dict(num_epochs=600)
-            hours = 48 if resolution==96 else 24
+            model_args = dict(nx=resolution, regression='full_loss') if model=='CGANRegression' else {}
+            fit_args = {}
+            #fit_args = dict(num_epochs=600)
+            #hours = 48 if resolution==96 else 24
+            hours = 10 if resolution==96 else 3
             hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 32, 'hours': hours, \
                 'job-name': job_name(model, operator, resolution), 'output': 'training.txt'})
             args = dict(model=model, train_path=train_path, transfer_path=transfer_path, model_args=model_args, fit_args=fit_args)
