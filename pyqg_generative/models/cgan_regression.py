@@ -10,6 +10,7 @@ import os
 from pyqg_generative.tools.cnn_tools import AndrewCNN, ChannelwiseScaler, log_to_xarray, save_model_args, \
     DCGAN_discriminator, train, apply_function, extract, prepare_PV_data, weights_init, minibatch, \
     AverageLoss
+from pyqg_generative.tools.deep_inversion import DeepInversionGenerator
 from pyqg_generative.tools.computational_tools import subgrid_scores
 from pyqg_generative.models.parameterization import Parameterization
 from pyqg_generative.tools.operators import coord
@@ -18,7 +19,7 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='full_loss', nx=64, folder='model'):
+    def __init__(self, regression='full_loss', nx=64, generator='Andrew', folder='model'):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -35,9 +36,15 @@ class CGANRegression(Parameterization):
         n_out = 2
 
         self.regression = regression
+        self.generator = generator
         self.nx = nx
 
-        self.G = AndrewCNN(n_in+self.n_latent,n_out)
+        if generator == 'Andrew':
+            self.G = AndrewCNN(n_in+self.n_latent,n_out)
+        elif generator == 'DeepInversion':
+            self.G = DeepInversionGenerator(n_in+self.n_latent,n_out)
+        else:
+            raise ValueError('generator not implemented')
         # Note minibatch discrimination (2*n_out)
         self.D = DCGAN_discriminator(n_in+2*n_out, bn='None', nx=nx)
 
@@ -87,7 +94,7 @@ class CGANRegression(Parameterization):
             torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
         self.x_scale.write('x_scale.json')
         self.y_scale.write('y_scale.json')
-        save_model_args('CGANRegression', regression=self.regression, nx=self.nx)
+        save_model_args('CGANRegression', regression=self.regression, nx=self.nx, generator=self.generator)
 
     def load_model(self, folder):
         if exists(f'{folder}/G.pt'):
