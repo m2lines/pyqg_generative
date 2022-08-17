@@ -10,16 +10,16 @@ N_ENS = 15 # number of ensemble members for a given IC
 NDAYS = 90 # number of days to forecast
 
 ntask = 0
-for resolution in [48, 64, 96]:
-    for operator in ['Operator1', 'Operator2']:
+for resolution in [256]:#[48, 64, 96]:
+    for operator in ['Default']:#['Operator1', 'Operator2']:
         _operator = operator+'-'+str(resolution)
-        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression']:
+        for model in ['Reference']:#['OLSModel', 'MeanVarModel', 'CGANRegression']:
             sampling = 'AR1'
 
             model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
             os.system('rm -rf ' + model_folder + '/' + 'eddy-forecast')
             for decorrelation in [0, 12, 24, 36, 48]: # in hours; 0 means tau=dt
-                if model=='OLSModel' and decorrelation > 0:
+                if model in ['OLSModel', 'Reference'] and decorrelation > 0:
                     continue
                 
                 for j_ic in range(N_IC):
@@ -42,7 +42,7 @@ for resolution in [48, 64, 96]:
                         selector = dict(run=j_ic, time=-1) if j_ic<10 else dict(run=j_ic-10, time=-30),
                         operator = operator,
                         number = j_ic,
-                        n_ens = N_ENS if model != 'OLSModel' else 1
+                        n_ens = 1 if model in ['OLSModel', 'Reference'] else N_ENS
                     )
 
                     args = {'forecast': 'yes', 'pyqg_params': pyqg_params, 

@@ -310,6 +310,83 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
 
     return xr.merge([ds.ds, stats])
 
+def ensemble_dataset_read(model_path, target_path):
+    dir = os.path.dirname(model_path)
+    cache = dir+'.nc'
+    if os.path.exists(cache):
+        return xr.open_dataset(cache)
+
+    model = xr.open_mfdataset(model_path, combine='nested', concat_dim='run', decode_times=False).astype('float64')
+    target = xr.open_mfdataset(target_path, combine='nested', concat_dim='run', decode_times=False).astype('float64')
+    model['x'] = target['x']
+    model['y'] = target['y']
+
+    du_err = target['u'] - model['u_mean']
+    dv_err = target['v'] - model['v_mean']
+    du_res = model['u'] - model['u_mean']
+    dv_res = model['v'] - model['v_mean']
+
+    def time_mean(var):
+        return var.isel(time=slice(5,31)).mean(dim='time')
+
+    var_res = (du_res**2 + dv_res**2).mean(dim=('run', 'x', 'y'))
+    var_err = (du_err**2 + dv_err**2).mean(dim=('run', 'x', 'y'))
+    ensemble_spread = (time_mean(var_res) / time_mean(var_err)).mean(dim='lev')
+
+    def normalize(var):
+        return var / var.std(dim=('x', 'y'))
+
+    def psd(var):
+        M = len(var.x) * len(var.y)
+        varf = np.fft.rfftn(var.values, axes=(-2, -1)) / M
+        af2 = (np.abs(varf)**2).mean(axis=(0)) # averaging over ensemble members
+        m = pyqg.QGModel(nx=len(var.x), log_level=0)
+        out = []
+        for t in range(af2.shape[0]):
+            k, sp0 = calc_ispec(m, af2[t,0], averaging=True, truncate=True)
+            k, sp1 = calc_ispec(m, af2[t,1], averaging=True, truncate=True)
+            out.append(np.stack(
+                [
+                sp0,
+                sp1
+                ]
+            ))
+        out = xr.DataArray(np.stack(out), dims=['time', 'lev', 'kr'])
+        out['kr'] = k
+        return out
+    
+    KE_res = psd(du_res) + psd(dv_res)
+    KE_err = psd(du_err) + psd(dv_err)
+
+    du_err = normalize(du_err)
+    dv_err = normalize(dv_err)
+    du_res = normalize(du_res)
+    dv_res = normalize(dv_res)
+
+    KE_res_normalized = psd(du_res) + psd(dv_res)
+    KE_err_normalized = psd(du_err) + psd(dv_err)
+
+    dx = model.x[2] - model.x[1]
+    kmax = 0.65 * np.pi / dx
+
+    def L2(sp1, sp2):
+        mask = sp1.kr <= kmax
+        return ((mask*(sp1-sp2)**2).sum('kr'))**0.5
+    
+    def time_mean_L2(sp1, sp2):
+        # 5 to 30 days fo prediction
+        return time_mean(L2(sp1, sp2))
+
+    ensemble_shape = (time_mean_L2(KE_res_normalized, KE_err_normalized) \
+        / time_mean_L2(0*KE_res_normalized, KE_err_normalized)).mean(dim='lev')
+
+    ds = xr.Dataset()
+    for key in ['var_res', 'var_err', 'KE_res', 'KE_err', 'ensemble_spread', 'ensemble_shape', 'kmax']:
+        ds[key] = eval(key)
+
+    ds.to_netcdf(cache)
+    return ds
+
 if __name__ ==  '__main__':
     import argparse
     parser = argparse.ArgumentParser()

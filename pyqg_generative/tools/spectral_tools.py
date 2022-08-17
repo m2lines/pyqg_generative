@@ -76,9 +76,11 @@ class spectrum():
         x = []
         for xx in _x:
             if 'run' not in xx.dims:
-                x.append(xx.expand_dims('run'))
-            else:
-                x.append(xx)
+                xx = xx.expand_dims('run')
+            if 'time' not in xx.dims:
+                xx = xx.expand_dims('time')
+                self.time=slice(0,1)
+            x.append(xx)
 
         if self.type == 'power':
             af2 = np.abs(self.fft2d(x[0]))**2
