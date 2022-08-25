@@ -35,11 +35,17 @@ class AR1_sampler(noise_time_sampler):
         at the next time step.
         nsteps - decorrelation time in time steps
         If nsteps = 1, AR1 is equal to white noise in time sampling
+        If nsteps < 0, correlation time is infinite and initial noise is 
+        preserved forever
         in case of first call, self.noise is initialized with input noise
         '''
         if hasattr(self, 'noise'):
-            a = 1 - 1/self.nsteps
-            b = (1/self.nsteps * (2 - 1/self.nsteps))**0.5
+            if self.nsteps > 0:
+                a = 1 - 1/self.nsteps
+                b = (1/self.nsteps * (2 - 1/self.nsteps))**0.5
+            else:
+                a = 1
+                b = 0
             self.noise = a * self.noise + b * generate_noise()
         else:
             self.noise = generate_noise()

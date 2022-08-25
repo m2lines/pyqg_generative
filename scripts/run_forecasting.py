@@ -9,11 +9,20 @@ N_IC = 15 # number of initial conditions
 N_ENS = 15 # number of ensemble members for a given IC
 NDAYS = 90 # number of days to forecast
 
+def decor_to_nsteps(decorrelation, dt):
+    if decorrelation == 0:
+        nsteps = 1
+    elif decorrelation < 0:
+        nsteps = -1
+    elif decorrelation > 0:
+        nsteps = int(decorrelation * 3600 / dt)
+    return nsteps
+
 ntask = 0
-for resolution in [256]:#[48, 64, 96]:
-    for operator in ['Default']:#['Operator1', 'Operator2']:
+for resolution in [48, 64, 96]:
+    for operator in ['Operator1', 'Operator2']:
         _operator = operator+'-'+str(resolution)
-        for model in ['Reference']:#['OLSModel', 'MeanVarModel', 'CGANRegression']:
+        for model in ['CGANRegression']:
             sampling = 'AR1'
 
             model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
@@ -26,7 +35,7 @@ for resolution in [256]:#[48, 64, 96]:
                     script_py ='/home/pp2681/pyqg_generative/pyqg_generative/tools/simulate.py'
 
                     pyqg_params = EDDY_PARAMS.nx(resolution)._update({'tmax': NDAYS*DAY})
-                    nsteps = int(decorrelation * 3600 / pyqg_params['dt']) if decorrelation > 0 else 1
+                    nsteps = decor_to_nsteps(decorrelation, pyqg_params['dt'])
 
                     subfolder = 'eddy-forecast/' + sampling + '-' + str(decorrelation)
                     os.system('mkdir -p ' + model_folder + '/' + subfolder)
@@ -38,7 +47,7 @@ for resolution in [256]:#[48, 64, 96]:
                     print('ntask=', ntask)
 
                     initial_condition = dict(
-                        path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/[0-9].nc',
+                        path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/',
                         selector = dict(run=j_ic, time=-1) if j_ic<10 else dict(run=j_ic-10, time=-30),
                         operator = operator,
                         number = j_ic,

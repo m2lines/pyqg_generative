@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 class CustomDict(dict):
     def _update(self, d):
@@ -12,7 +13,8 @@ class CustomDict(dict):
 
 DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
-    'hours': 48, 'job-name': 'pyqg_generative', 'gres': 'gpu', 
+    'hours': 48, 'minutes': 0, 'job-name': 'pyqg_generative', 'launcher': 'launcher.sh', 
+    'gres': 'gpu', 'partition': 'NONE',
     'output': 'out.slurm', 'error': 'err.slurm', 'mail': 'NONE'})
 
 def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
@@ -32,13 +34,17 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --ntasks-per-node='+hpc['ntasks'],
         '#SBATCH --cpus-per-task='+hpc['cpus'],
         '#SBATCH --mem='+hpc['mem']+'GB',
-        '#SBATCH --time='+hpc['hours']+':59:00',
+       f'#SBATCH --time={hpc["hours"]}:{hpc["minutes"]}:00',
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
-        '#SBATCH --output='+os.path.join(folder, hpc['output']),
-        '#SBATCH --error='+os.path.join(folder, hpc['error']),
+        '#SBATCH --partition='+hpc['partition'] if hpc['partition'] != 'NONE' else '',
+        '#SBATCH --output='+hpc['output'],
+        '#SBATCH --error='+hpc['error'],
         '#SBATCH --mail-user=pp2681@nyu.edu',
         '#SBATCH --mail-type='+hpc['mail'],
+        'echo " "',
+        'scontrol show jobid -dd $SLURM_JOB_ID',
+        'echo " "',
         'module purge'
     ]
     singularity = 'singularity exec --nv ' \
@@ -66,7 +72,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
 
     lines.append(singularity + python_command)
 
-    with open(os.path.join(folder, 'launcher.sub'),'w') as fid:
+    with open(os.path.join(folder, hpc["launcher"]),'w') as fid:
         fid.writelines([ line+'\n' for line in lines])
 
 def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS, delete=False):
@@ -84,4 +90,4 @@ def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS, delete
     os.system('mkdir -p '+ folder)
 
     create_slurm(folder, script_py, hpc, args)
-    os.system('cd '+folder+'; sbatch launcher.sub')
+    os.system('cd '+folder+f'; sbatch {hpc["launcher"]}')

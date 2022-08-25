@@ -413,3 +413,4 @@ if __name__ ==  '__main__':
         json.dump(difference, file)
         print('json dump done')
     print('json file closed')
+    del model, target

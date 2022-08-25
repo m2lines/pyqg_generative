@@ -10,7 +10,7 @@ def folder_iterator(
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [32, 48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
-    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-residual', 'CGANRegressionxy-full'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-residual', 'CGANRegressionxy-full', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
     Configuration = ['eddy']
@@ -52,13 +52,16 @@ for model_folder, target_path, _, key in folder_iterator(return_reference=True):
     nfile +=1
     script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/comparison_tools.py'
     model_path = os.path.join(model_folder, '*.nc')
-    save_file = f'/home/pp2681/pyqg_generative/notebooks/difference/{str(nfile)}.json'
-    save_folder = '/home/pp2681/pyqg_generative/notebooks/'
+    save_file = f'output/{str(nfile)}.json'
+    save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
 
-    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 'hours': 1, 
+    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 
+                        'hours': 0, 'minutes': 4,
                         'job-name': nfile, 'gres': 'NONE', 
-                        'output': f'difference/{str(nfile)}.out',
-                        'error' : f'difference/{str(nfile)}.err'})
+                        'output': f'output/{str(nfile)}.out',
+                        'error' : f'output/{str(nfile)}.err',
+                        'launcher': f'{str(nfile)}.sh',
+                        'partition': 'cs'})
 
     args = dict(model_path=model_path, target_path=target_path, key=key, save_file=save_file)
     run_experiment(save_folder, script_py, hpc, args, delete=False)
@@ -71,12 +74,17 @@ for operator in ['Operator1', 'Operator2']:
         model_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_'+res+'/*.nc'
         target_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/'+operator+'-'+res+'.nc'
         
-        save_file = f'/home/pp2681/pyqg_generative/notebooks/difference/{str(nfile)}.json'
-        save_folder = '/home/pp2681/pyqg_generative/notebooks/'
+        save_file = f'output/{str(nfile)}.json'
+        save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
         key = operator+'-'+res+'/Reference'
 
-        hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 'hours': 1, 
-                            'job-name': nfile, 'gres': 'NONE'})
+        hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 
+                        'hours': 0, 'minutes': 4,
+                        'job-name': nfile, 'gres': 'NONE', 
+                        'output': f'output/{str(nfile)}.out',
+                        'error' : f'output/{str(nfile)}.err',
+                        'launcher': f'{str(nfile)}.sh',
+                        'partition': 'cs'})
 
         args = dict(model_path=model_path, target_path=target_path, key=key, save_file=save_file)
         run_experiment(save_folder, script_py, hpc, args, delete=False)

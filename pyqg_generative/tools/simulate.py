@@ -3,6 +3,7 @@ import numpy as np
 import pyqg
 import json 
 
+from pyqg_generative.tools.cnn_tools import timer
 from pyqg_generative.tools.operators import Operator1, Operator2, Operator4, PV_subgrid_forcing
 from pyqg_generative.tools.parameters import ANDREW_1000_STEPS, DAY
 from pyqg_generative.tools.stochastic_pyqg import stochastic_QGModel
@@ -11,6 +12,7 @@ from pyqg_generative.models.mean_var_model import MeanVarModel
 from pyqg_generative.models.cgan_regression import CGANRegression
 from pyqg_generative.models.cgan_regressionxy import CGANRegressionxy
 
+@timer
 def concat_in_time(datasets):
     '''
     Concatenation of snapshots in time:
@@ -19,8 +21,28 @@ def concat_in_time(datasets):
     - Discard complex vars
     - Reduce precision
     '''
+    from time import time
     # Concatenate datasets along the time dimension
+    tt = time()
     ds = xr.concat(datasets, dim='time')
+    if float(time() - tt) > 100:
+        print('Line 27 took', time() - tt, 'seconds')
+        print('Len of the datasets', len(datasets), '\n')
+        
+        print('Individual coords:')
+        for d in datasets:
+            print(d.coords)
+        print('Total coord:')
+        print(ds.coords)
+
+        print('\n')
+        print('individual variables:')
+        for d in datasets:
+            print(d.variables)
+        print('total variables:')
+        print(ds.variables)
+
+        raise ValueError('Concatenation of datasets took too long time')
     
     # Diagnostics get dropped by this procedure since they're only present for
     # part of the timeseries; resolve this by saving the most recent
@@ -86,6 +108,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
             assign_attrs(**m.to_dataset().attrs)
     return out
 
+@timer
 def run_simulation(pyqg_params, parameterization=None, q_init=None,
     sampling_freq=ANDREW_1000_STEPS):
     '''
@@ -107,12 +130,12 @@ def run_simulation(pyqg_params, parameterization=None, q_init=None,
     if q_init is not None:
         m.q = q_init.astype('float64')
         m._invert()
-        ds = [m.to_dataset()] # convenient to have IC saved
+        ds = [m.to_dataset().copy(deep=True)] # convenient to have IC saved
     else:
         ds = [] # for backward compatibility
 
     for t in m.run_with_snapshots(tsnapint=sampling_freq): 
-        ds.append(m.to_dataset())
+        ds.append(m.to_dataset().copy(deep=True))
     
     out = concat_in_time(ds).astype('float32')
     out.attrs['pyqg_params'] = str(pyqg_params)
@@ -180,12 +203,13 @@ if __name__ ==  '__main__':
 
         initial_condition = eval(args.initial_condition)
         pyqg_params = eval(args.pyqg_params)
-        q_init = xr.open_mfdataset(initial_condition['path'], combine='nested', concat_dim='run').isel(initial_condition['selector']).q.values
+        path = initial_condition['path']+str(initial_condition['selector']['run'])+'.nc'
+        q_init = xr.open_dataset(path).isel(time=initial_condition['selector']['time']).q.values
         try:
             q_init = eval(initial_condition['operator'])(q_init, pyqg_params['nx'])
             print('Operator is applied')
         except:
-            pass
+            print('Operator is not applied')
         
         print('q_init type = ', type(q_init))
         print('q_init shape = ', q_init.shape)

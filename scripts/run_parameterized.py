@@ -12,10 +12,19 @@ def job_name(*A):
     for a in A:
         out += str(a)[0]
     return out
-    
-for resolution in [32, 48, 64, 96]:
+
+def decor_to_nsteps(decorrelation, dt):
+    if decorrelation == 0:
+        nsteps = 1
+    elif decorrelation < 0:
+        nsteps = -1
+    elif decorrelation > 0:
+        nsteps = int(decorrelation * 3600 / dt)
+    return nsteps
+
+for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression']:
+        for model in ['CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet']:
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
                 for decorrelation in [0, 12, 24, 36, 48]: # in hours; 0 means tau=dt
@@ -31,7 +40,7 @@ for resolution in [32, 48, 64, 96]:
                             script_py ='/home/pp2681/pyqg_generative/pyqg_generative/tools/simulate.py'
 
                             pyqg_params = basic_params.nx(resolution)._update({'tmax': 20*YEAR})
-                            nsteps = int(decorrelation * 3600 / pyqg_params['dt']) if decorrelation > 0 else 1
+                            nsteps = decor_to_nsteps(decorrelation, pyqg_params['dt'])
                             
                             subfolder = name + '-' + sampling + '-' + str(decorrelation)
                             os.system('mkdir -p ' + model_folder + '/' + subfolder)
