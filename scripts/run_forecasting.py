@@ -22,7 +22,7 @@ ntask = 0
 for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
         _operator = operator+'-'+str(resolution)
-        for model in ['CGANRegression']:
+        for model in ['CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet']:
             sampling = 'AR1'
 
             model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
@@ -40,9 +40,11 @@ for resolution in [48, 64, 96]:
                     subfolder = 'eddy-forecast/' + sampling + '-' + str(decorrelation)
                     os.system('mkdir -p ' + model_folder + '/' + subfolder)
 
-                    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 'hours': 0, 
+                    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
+                        'hours': 1,
                         'job-name': ntask, 
-                        'gres': 'NONE', 'output': f'{subfolder}/out-{j_ic}.txt', 'error': f'{subfolder}/err-{j_ic}.txt'})
+                        'gres': 'NONE', 'partition': 'cs',
+                        'output': f'{subfolder}/out-{j_ic}.txt', 'error': f'{subfolder}/err-{j_ic}.txt'})
                     ntask += 1
                     print('ntask=', ntask)
 

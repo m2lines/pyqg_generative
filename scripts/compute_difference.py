@@ -55,7 +55,7 @@ for model_folder, target_path, _, key in folder_iterator(return_reference=True):
     save_file = f'output/{str(nfile)}.json'
     save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
 
-    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 
+    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
                         'hours': 0, 'minutes': 4,
                         'job-name': nfile, 'gres': 'NONE', 
                         'output': f'output/{str(nfile)}.out',
@@ -78,7 +78,7 @@ for operator in ['Operator1', 'Operator2']:
         save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
         key = operator+'-'+res+'/Reference'
 
-        hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 16, 
+        hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
                         'hours': 0, 'minutes': 4,
                         'job-name': nfile, 'gres': 'NONE', 
                         'output': f'output/{str(nfile)}.out',

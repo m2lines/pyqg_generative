@@ -5,13 +5,14 @@ import xarray as xr
 import numpy as np
 import pyqg
 import json
+from scipy.stats import wasserstein_distance
 
 import pyqg_generative.tools.operators as op
 from pyqg_generative.tools.computational_tools import PDF_histogram
 from pyqg_generative.tools.parameters import AVERAGE_SLICE_ANDREW
 from pyqg_generative.tools.spectral_tools import calc_ispec, coord
 import pyqg_subgrid_experiments as pse
-import pyqg_parameterization_benchmarks as ppb
+from pyqg_parameterization_benchmarks.utils import FeatureExtractor
 
 DISTRIB_KEYS = [
     'distrib_diff_q1',
@@ -181,7 +182,6 @@ def score_for_model(similarity, loss_function, resolution, operator, model,
     
     return {key:loss_function(similarity[key]) for key in keys if key in similarity.keys()}
 
-
 def best_time_sampling(similarity, loss_function,
     Resolution = [48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
@@ -207,6 +207,87 @@ def best_time_sampling(similarity, loss_function,
                 model_dict = {key:loss_similarity[key] for key in keys if key in similarity.keys()}
                 #https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
                 return model_dict#max(model_dict, key=model_dict.get)
+
+def diagnostic_differences_Perezhogin(ds1, ds2, T=128): 
+    '''
+    Here it is assumed that ds2 is a target. It is used for 
+    normalization
+    Output: differences dictionary and scales dictionary
+    '''  
+    if 'run' not in ds1.dims: ds1 = ds1.expand_dims('run')
+    if 'run' not in ds2.dims: ds2 = ds2.expand_dims('run')
+
+    from time import time
+
+    distribution_quantities = dict(
+        q='q',
+        u='u',
+        v='v',
+        KE='add(pow(u,2),pow(v,2))', # u^2 + v^2
+        Ens='pow(curl(u,v),2)', # (u_y - v_x)^2
+    )
+    
+    differences = {}
+    scales = {} # normalization factors
+    
+    for label, expr in distribution_quantities.items():
+        for z in [0,1]:
+            # Flatten over space and the last T timesteps
+            ts = slice(-T,None)
+            q1 = FeatureExtractor(ds1.isel(lev=z,time=ts))(expr).ravel()
+            q2 = FeatureExtractor(ds2.isel(lev=z,time=ts))(expr).ravel()
+            # Compute the empirical wasserstein distance
+            differences[f"distrib_diff_{label}{z+1}"] = wasserstein_distance(q1, q2)
+            scales[f"distrib_diff_{label}{z+1}"] = float(np.sqrt(np.mean(q2**2)))
+            
+    def twothirds_nyquist(m):
+        return m.k[0][np.argwhere(np.array(m.filtr)[0]<1)[0,0]]
+        
+    def spectral_rmse(spec1, spec2):
+        # Initialize pyqg models so we can use pyqg's calc_ispec helper
+        m1 = pyqg.QGModel(nx=spec1.data.shape[-2], log_level=0)
+        m2 = pyqg.QGModel(nx=spec2.data.shape[-2], log_level=0)
+        # Compute isotropic spectra
+        kr1, ispec1 = calc_ispec(m1, spec1.values)
+        kr2, ispec2 = calc_ispec(m2, spec2.values)
+        # Take error over wavenumbers below 2/3 of both models' Nyquist freqs
+        kmax = min(twothirds_nyquist(m1), twothirds_nyquist(m2))
+        nk = (kr1 < kmax).sum()
+
+        return np.sqrt(np.mean((ispec1[:nk].astype('float64')-ispec2[:nk].astype('float64'))**2)), np.sqrt(np.mean((ispec2[:nk].astype('float64'))**2))
+        
+    for spec in ['KEspec']:
+        for z in [0,1]:
+            tt = time()
+            spec1 = ds1[spec].isel(lev=z).mean('run')
+            spec2 = ds2[spec].isel(lev=z).mean('run')
+            differences[f"spectral_diff_{spec}{z+1}"], scales[f"spectral_diff_{spec}{z+1}"] \
+                 = spectral_rmse(spec1, spec2)
+
+    def compute_Eflux(ds):
+        out = 0
+        for spec in ['KEflux', 'APEflux', 'paramspec_KEflux', 'paramspec_APEflux']:
+            if spec in ds.data_vars:
+                out = out + ds[spec].mean('run')
+        return out
+
+    for spec in ['Eflux']:
+        spec1 = compute_Eflux(ds1)
+        spec2 = compute_Eflux(ds2)
+        differences[f"spectral_diff_{spec}"], scales[f"spectral_diff_{spec}"] \
+            = spectral_rmse(spec1, spec2)
+
+    for spec in ['APEgenspec']:
+        spec1 = ds1[spec].mean('run')
+        spec2 = ds2[spec].mean('run')
+        differences[f"spectral_diff_{spec}"], scales[f"spectral_diff_{spec}"] \
+            = spectral_rmse(spec1, spec2)
+
+    normalized_differences = {}
+    for key in differences.keys():
+        normalized_differences[key] = differences[key]/scales[key]
+        
+    return normalized_differences, differences, scales
 
 def cache_path(path):
     dir = os.path.dirname(path)
@@ -403,7 +484,7 @@ if __name__ ==  '__main__':
     target = xr.open_dataset(args.target_path)
     print('target loaded')
     
-    difference,_,_ = ppb.diagnostic_differences_Perezhogin(model, target, T=128)
+    difference,_,_ = diagnostic_differences_Perezhogin(model, target, T=128)
     print('difference calculated')
     difference['key'] = args.key
     print('key added')

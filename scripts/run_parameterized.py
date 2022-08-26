@@ -49,7 +49,8 @@ for resolution in [48, 64, 96]:
     
                             hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 'hours': hours, 
                                 'job-name': job_name(resolution, operator, model, sampling, decorrelation, ens), 
-                                'gres': 'NONE', 'output': f'{subfolder}/out-{ens}.txt', 'error': f'{subfolder}/err-{ens}.txt'})
+                                'gres': 'NONE', 'partition': 'cs',
+                                'output': f'{subfolder}/out-{ens}.txt', 'error': f'{subfolder}/err-{ens}.txt'})
 
                             args = {'parameterization': 'yes', 'ensemble_member': ens, 'pyqg_params': pyqg_params, 
                                 'subfolder': subfolder, 'sampling': sampling, 'nsteps': nsteps}
