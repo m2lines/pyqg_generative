@@ -22,9 +22,11 @@ def decor_to_nsteps(decorrelation, dt):
         nsteps = int(decorrelation * 3600 / dt)
     return nsteps
 
-for resolution in [48, 64, 96]:
+ntask = 0
+for resolution in [96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet']:
+        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet']:
+            input()
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
                 for decorrelation in [0, 12, 24, 36, 48]: # in hours; 0 means tau=dt
@@ -34,7 +36,7 @@ for resolution in [48, 64, 96]:
                         continue
                     if sampling=='AR1' and decorrelation==0:
                         continue
-                    for basic_params, name in zip([EDDY_PARAMS], ['eddy']):
+                    for basic_params, name in zip([JET_PARAMS], ['jet']):
                         for ens in range(N_ENS):
                             model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
                             script_py ='/home/pp2681/pyqg_generative/pyqg_generative/tools/simulate.py'
@@ -45,10 +47,12 @@ for resolution in [48, 64, 96]:
                             subfolder = name + '-' + sampling + '-' + str(decorrelation)
                             os.system('mkdir -p ' + model_folder + '/' + subfolder)
 
-                            hours = {32:1, 48: 1, 64: 2, 96: 10}[resolution]
-    
-                            hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 'hours': hours, 
-                                'job-name': job_name(resolution, operator, model, sampling, decorrelation, ens), 
+                            hours = {32:1, 48: 2, 64: 4, 96: 10}[resolution]
+
+                            ntask += 1
+                            print(ntask)
+                            hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 2, 'hours': hours, 
+                                'job-name': f'j{str(resolution)}-{str(ntask)}',
                                 'gres': 'NONE', 'partition': 'cs',
                                 'output': f'{subfolder}/out-{ens}.txt', 'error': f'{subfolder}/err-{ens}.txt'})
 

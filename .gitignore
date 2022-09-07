@@ -8,3 +8,4 @@ notebooks/stats.nc
 pyqg_generative.egg-info*
 notebooks/model/*
 notebooks/difference
+notebooks/plot.pdf

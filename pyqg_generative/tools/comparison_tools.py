@@ -10,7 +10,7 @@ from scipy.stats import wasserstein_distance
 import pyqg_generative.tools.operators as op
 from pyqg_generative.tools.computational_tools import PDF_histogram
 from pyqg_generative.tools.parameters import AVERAGE_SLICE_ANDREW
-from pyqg_generative.tools.spectral_tools import calc_ispec, coord
+from pyqg_generative.tools.spectral_tools import calc_ispec, coord, spectrum
 import pyqg_subgrid_experiments as pse
 from pyqg_parameterization_benchmarks.utils import FeatureExtractor
 
@@ -297,6 +297,10 @@ def cache_path(path):
     return os.path.join(dir,cachename)
 
 def dataset_smart_read(path, delta=0.25, read_cache=True):
+    print(path)
+    nfiles = len(glob.glob(path))
+    if nfiles < 10:
+        print('Warning! Computations are unstable. Number of files is less than 10 and equal to', nfiles)
     cache = cache_path(path)
     if os.path.exists(cache) and read_cache:
         #print('Read cache ' + cache)
@@ -467,6 +471,188 @@ def ensemble_dataset_read(model_path, target_path):
 
     ds.to_netcdf(cache)
     return ds
+
+def plot_panel_figure(operator='Operator1', resolution=48,
+    models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
+    configuration = 'eddy',
+    samplings = [], lss = [], lws = [], colors = [],
+    markers = [], markersizes = [], markerfillstyles = [],
+    markeredgewidths = [], labels = [], alphas = [],
+    read_cache=True):
+    '''
+    Each style parameter may be specified for a few experiments
+    or not defined. Autocompletion with default values will be
+    performed
+    '''
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.size': 12})
+    fig, axs = plt.subplots(2,3, figsize=(14,6))
+    plt.subplots_adjust(wspace=0.3, hspace=0.65)
+    
+    xlim=[1e-5, 2e-4]; ylim1=[1e-1,2e+2]; ylim2=[1e-2,1e+1]
+    if resolution==64:
+        ylim2=[5e-3,1e+1]
+    elif resolution==96:
+        xlim=[1e-5, 3e-4]
+        ylim1=[1e-2, 2e+2]
+        ylim2=[1e-4,1e+1]
+
+    def ave_lev(arr):
+        return op.ave_lev(arr, delta=0.25 if configuration=='eddy' else 0.1)
+    
+    def style_complete(property, default, nm):
+        '''
+        If property is defined not for every model, 
+        complete with default value
+        '''
+        if not isinstance(property, list):
+            property = nm*[property]
+        np = len(property)
+        if np < nm:
+            if isinstance(default, list):
+                property += default[np:nm]
+            else:
+                property += [default]*(nm-np)
+        return property
+
+    nmodels = len(models_folders)
+    samplings = style_complete(samplings, 'constant-0', nmodels)
+    samplings = [configuration+'-'+s for s in samplings]
+
+    lss = style_complete(lss, '-', nmodels)
+    lws = style_complete(lws, 1, nmodels)
+    colors = style_complete(colors, [f'C{j}' for j in range(nmodels)], nmodels) # just default colors
+    markers = style_complete(markers, ['o', 's', '>', '<', 'X', 'D', '*', 'v', 'p', 'P', 'd'], nmodels)
+    markersizes = style_complete(markersizes, 4, nmodels)
+    markerfillstyles = style_complete(markerfillstyles, 'full', nmodels)
+    markeredgewidths = style_complete(markeredgewidths, 1, nmodels)
+    labels = style_complete(labels, models_folders, nmodels)
+    alphas = style_complete(alphas, 1, nmodels)
+    
+    print(labels)
+
+    dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
+    target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
+    lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
+
+    lines = []
+    for j in range(nmodels):
+        lines.append({'ls': lss[j], 'lw': lws[j], 'color': colors[j], 
+            'marker': markers[j], 'markersize': markersizes[j],
+            'fillstyle': markerfillstyles[j], 'markeredgewidth': markeredgewidths[j],
+            'label': labels[j], 'alpha': alphas[j]})
+    
+    hires = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc', read_cache=read_cache)
+    target = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
+    lores = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    
+    models = []
+    for folder, sampling in zip(models_folders, samplings):
+        try:
+            ds = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
+        except:
+            ds = None
+        models.append(ds) 
+
+    offline = xr.open_dataset(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/{operator}-{str(resolution)}/0.nc')
+    offline['paramspec_KEfluxr'] = ave_lev(spectrum(type='cospectrum', averaging=True, truncate=True)(-offline.psi, offline.q_forcing_advection))
+    offline['paramspec_APEfluxr'] = 0*offline['paramspec_KEfluxr']
+
+    ax = axs[0][0]
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.KEspecr.isel(lev=0).plot(ax=ax, **line)
+        except:
+            pass
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.KEspecr.isel(lev=1).plot(ax=ax, **line)
+        except:
+            pass
+        
+    ax.set_ylim([min(ylim2), max(ylim1)])
+    ax.set_xlim(xlim)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_title('KE spectrum')
+    ax.set_ylabel('Energy spectrum [$m^3/s^2$]', fontsize=11)
+    ax.text(1.3e-4, 1.5e-1, 'lower')
+    ax.text(1.2e-4, 1.5e+1, 'upper')
+    
+    ax = axs[1][0]
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.Efluxr.plot(ax=ax, **line)
+        except:
+            pass
+    ax.set_xscale('log')
+    ax.set_xlim(xlim)
+    ax.set_ylim([-1.2e-6, 1.2e-6])
+    ax.set_title('Energy transfer \n (resolved+subgrid)')
+    ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
+    
+    ax=axs[1][1]
+    for model, line in zip([offline, *models],
+        [target_line, *lines]):
+        try:
+            (model.paramspec_APEfluxr + model.paramspec_KEfluxr).plot(ax=ax, **line)
+        except:
+            pass
+    ax.set_xlim(xlim)
+    ax.set_xscale('log')
+    ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
+    ax.set_title('Energy transfer \n (subgrid)')
+    
+    ax = axs[0][1]
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.APEgenspecr.plot(ax=ax, **line)
+        except:
+            pass
+    ax.set_xscale('log')
+    ax.set_xlim(xlim)
+    ax.set_ylim([-2e-7, 2.5e-6])
+    ax.set_title('Energy source')
+    ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
+    
+    ax = axs[0][2]
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.KE_time.plot(ax=ax, markevery=6, **line)
+        except:
+            pass
+    ax.set_title('KE per unit mass')
+    ax.set_ylabel('Kinetic energy [$10^{-4} m^2/s^2$]', fontsize=11)
+    ax.set_ylim([0, 8e-4])
+    ax.set_yticks([0, 2e-4, 4e-4, 6e-4, 8e-4])
+    ax.set_yticklabels([0,2,4,6,8])
+    
+    
+    ax = axs[1][2]
+    for model, line in zip([hires, target, lores, *models], 
+        [dns_line, target_line, lores_line, *lines]):
+        try:
+            model.PDF_Ens1.plot(ax=ax, markevery=2, **line)
+        except:
+            pass
+    ax.set_yscale('log')
+    ax.set_title('Upper enstrophy PDF')
+    ax.set_ylabel('Probability density', fontsize=11)
+    ax.set_xlabel('relative enstrophy [$10^{-11}s^{-2}$]')
+    ax.set_xticks([0, 2e-11, 4e-11, 6e-11, 8e-11, 10e-11])
+    ax.set_xticklabels([0, 2, 4, 6, 8, 10])
+    ax.set_ylim([5e+7, 1e+12])
+    
+    fig.align_ylabels()
+    fig.align_xlabels()
+    axs[1][2].legend(frameon=False, ncol=2, fontsize=9)
+
+    return axs
 
 if __name__ ==  '__main__':
     import argparse
