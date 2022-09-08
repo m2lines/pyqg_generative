@@ -529,11 +529,12 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     labels = style_complete(labels, models_folders, nmodels)
     alphas = style_complete(alphas, 1, nmodels)
     
-    print(labels)
+    print(nmodels, labels)
 
     dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
     target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
     lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
+    lores_3600_line = {'color': 'tab:purple', 'ls': '--', 'lw': 2, 'label': 'lores, $1h$'}
 
     lines = []
     for j in range(nmodels):
@@ -545,6 +546,7 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     hires = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc', read_cache=read_cache)
     target = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
     lores = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    lores_3600 = dataset_smart_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_3600_{str(resolution)}/[0-9].nc', read_cache=read_cache)
     
     models = []
     for folder, sampling in zip(models_folders, samplings):
@@ -559,14 +561,14 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     offline['paramspec_APEfluxr'] = 0*offline['paramspec_KEfluxr']
 
     ax = axs[0][0]
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.KEspecr.isel(lev=0).plot(ax=ax, **line)
         except:
             pass
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.KEspecr.isel(lev=1).plot(ax=ax, **line)
         except:
@@ -582,8 +584,8 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     ax.text(1.2e-4, 1.5e+1, 'upper')
     
     ax = axs[1][0]
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.Efluxr.plot(ax=ax, **line)
         except:
@@ -607,8 +609,8 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     ax.set_title('Energy transfer \n (subgrid)')
     
     ax = axs[0][1]
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.APEgenspecr.plot(ax=ax, **line)
         except:
@@ -620,8 +622,8 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
     
     ax = axs[0][2]
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.KE_time.plot(ax=ax, markevery=6, **line)
         except:
@@ -634,8 +636,8 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     
     
     ax = axs[1][2]
-    for model, line in zip([hires, target, lores, *models], 
-        [dns_line, target_line, lores_line, *lines]):
+    for model, line in zip([hires, target, lores, lores_3600, *models], 
+        [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
             model.PDF_Ens1.plot(ax=ax, markevery=2, **line)
         except:

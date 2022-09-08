@@ -13,7 +13,7 @@ def folder_iterator(
     Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
-    Configuration = ['eddy', 'eddy-3600', 'jet-3600', 'jet']
+    Configuration = ['eddy', 'eddy-3600', 'jet-3600', 'jet', 'eddy-recompute'],
     ):
 
     for resolution in Resolution:
@@ -69,23 +69,24 @@ for model_folder, target_path, _, key in folder_iterator(return_reference=True):
 
 for operator in ['Operator1', 'Operator2']:
     for res in ['32', '48', '64', '96']:
-        nfile +=1
-        script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/comparison_tools.py'
-        model_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_'+res+'/*.nc'
-        target_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/'+operator+'-'+res+'.nc'
-        
-        save_file = f'output/{str(nfile)}.json'
-        save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
-        key = operator+'-'+res+'/Reference'
+        for timestep in ['', '_3600']:
+            nfile +=1
+            script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/comparison_tools.py'
+            model_path = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference{timestep}_'+res+'/*.nc'
+            target_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/reference_256/'+operator+'-'+res+'.nc'
+            
+            save_file = f'output/{str(nfile)}.json'
+            save_folder = '/home/pp2681/pyqg_generative/notebooks/difference'
+            key = operator+'-'+res+f'/Reference{timestep}'
 
-        hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
-                        'hours': 0, 'minutes': 4,
-                        'job-name': nfile, 'gres': 'NONE', 
-                        'output': f'output/{str(nfile)}.out',
-                        'error' : f'output/{str(nfile)}.err',
-                        'launcher': f'{str(nfile)}.sh',
-                        'partition': 'cs'})
+            hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
+                            'hours': 0, 'minutes': 4,
+                            'job-name': nfile, 'gres': 'NONE', 
+                            'output': f'output/{str(nfile)}.out',
+                            'error' : f'output/{str(nfile)}.err',
+                            'launcher': f'{str(nfile)}.sh',
+                            'partition': 'cs'})
 
-        args = dict(model_path=model_path, target_path=target_path, key=key, save_file=save_file)
-        run_experiment(save_folder, script_py, hpc, args, delete=False)
-        print(nfile)
+            args = dict(model_path=model_path, target_path=target_path, key=key, save_file=save_file)
+            run_experiment(save_folder, script_py, hpc, args, delete=False)
+            print(nfile)
