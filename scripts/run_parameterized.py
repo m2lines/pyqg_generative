@@ -23,25 +23,27 @@ def decor_to_nsteps(decorrelation, dt):
     return nsteps
 
 ntask = 0
-for resolution in [96]:
+for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet']:
-            input()
+        for model in ['OLSModel-div', 'CGANRegression-div']:
+            #input()
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
-                for decorrelation in [0, 12, 24, 36, 48]: # in hours; 0 means tau=dt
+                for decorrelation in [0]: # in hours; 0 means tau=dt
                     if sampling=='constant' and decorrelation>0:
                         continue
                     if model=='OLSModel' and sampling=='AR1':
                         continue
                     if sampling=='AR1' and decorrelation==0:
                         continue
-                    for basic_params, name in zip([JET_PARAMS], ['jet']):
+                    for basic_params, name in zip([EDDY_PARAMS, EDDY_PARAMS, JET_PARAMS, JET_PARAMS], ['eddy', 'eddy-3600', 'jet', 'jet-3600']):
                         for ens in range(N_ENS):
                             model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
                             script_py ='/home/pp2681/pyqg_generative/pyqg_generative/tools/simulate.py'
 
                             pyqg_params = basic_params.nx(resolution)._update({'tmax': 20*YEAR})
+                            if name in ['eddy-3600', 'jet-3600']:
+                                pyqg_params['dt'] = 3600
                             nsteps = decor_to_nsteps(decorrelation, pyqg_params['dt'])
                             
                             subfolder = name + '-' + sampling + '-' + str(decorrelation)

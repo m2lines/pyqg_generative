@@ -10,12 +10,13 @@ from pyqg_generative.tools.cnn_tools import AndrewCNN, ChannelwiseScaler, log_to
 from pyqg_generative.models.parameterization import Parameterization
 
 class OLSModel(Parameterization):
-    def __init__(self):
+    def __init__(self, div=False, folder='model'):
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
-        self.net = AndrewCNN(2,2)
+        self.div = div
+        self.net = AndrewCNN(2,2, div=div)
 
-        self.load_model()
+        self.load_model(folder)
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
         batch_size=64, learning_rate=0.001):
@@ -35,17 +36,17 @@ class OLSModel(Parameterization):
         torch.save(self.net.state_dict(), 'model/net.pt')
         self.x_scale.write('x_scale.json')
         self.y_scale.write('y_scale.json')
-        save_model_args('OLSModel')
+        save_model_args('OLSModel', div=self.div)
         log_to_xarray(self.net.log_dict).to_netcdf('model/stats.nc')
 
-    def load_model(self):
-        if exists('model/net.pt'):
-            print(f'reading OLSModel')
+    def load_model(self, folder):
+        if exists(f'{folder}/net.pt'):
+            print(f'reading OLSModel from {folder}')
             self.net.load_state_dict(
-                torch.load('model/net.pt', map_location='cpu')
+                torch.load(f'{folder}/net.pt', map_location='cpu')
             )
-            self.x_scale = ChannelwiseScaler().read('x_scale.json')
-            self.y_scale = ChannelwiseScaler().read('y_scale.json')
+            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
+            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
 
     def generate_latent_noise(self, ny, nx):
         return 0

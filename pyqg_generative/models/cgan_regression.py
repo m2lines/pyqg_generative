@@ -19,7 +19,7 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='full_loss', nx=64, generator='Andrew', folder='model'):
+    def __init__(self, regression='full_loss', nx=64, generator='Andrew', folder='model', div=False):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -38,9 +38,10 @@ class CGANRegression(Parameterization):
         self.regression = regression
         self.generator = generator
         self.nx = nx
+        self.div = div
 
         if generator == 'Andrew':
-            self.G = AndrewCNN(n_in+self.n_latent,n_out)
+            self.G = AndrewCNN(n_in+self.n_latent,n_out, div=div)
         elif generator == 'DeepInversion':
             self.G = DeepInversionGenerator(n_in+self.n_latent,n_out)
         else:
@@ -49,7 +50,7 @@ class CGANRegression(Parameterization):
         self.D = DCGAN_discriminator(n_in+2*n_out, bn='None', nx=nx)
 
         if regression != 'None':
-            self.net_mean = AndrewCNN(n_in, n_out)
+            self.net_mean = AndrewCNN(n_in, n_out, div=div)
 
         self.G.apply(weights_init)
         self.D.apply(weights_init)
@@ -94,7 +95,7 @@ class CGANRegression(Parameterization):
             torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
         self.x_scale.write('x_scale.json')
         self.y_scale.write('y_scale.json')
-        save_model_args('CGANRegression', regression=self.regression, nx=self.nx, generator=self.generator)
+        save_model_args('CGANRegression', regression=self.regression, nx=self.nx, generator=self.generator, div=self.div)
 
     def load_model(self, folder):
         if exists(f'{folder}/G.pt'):

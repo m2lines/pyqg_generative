@@ -7,6 +7,7 @@ import xarray as xr
 import json
 from time import time
 from pyqg_generative.tools.operators import coord
+import pyqg
 
 def log_to_xarray(log_dict):
     anykey = list(log_dict.keys())[0]
@@ -96,14 +97,42 @@ def make_block(in_channels: int, out_channels: int, kernel_size: int,
         block.append(nn.BatchNorm2d(out_channels))
     return block
 
+def divergence(x):
+    '''
+    Takes pytorch tensor of size
+    Nbatch x Nchannels x Ny x Nx
+    and computes divergence in spectral space
+    and returns tensor of size
+    Nbatch x Nchannels / 2  x Ny x Nx
+    '''
+    device = x.device
+    m = pyqg.QGModel(nx=x.shape[-1], log_level=0)
+    ik = torch.tensor(m.ik.astype('complex64')).to(device)
+    il = torch.tensor(m.il.astype('complex64')).to(device)
+
+    ix = torch.fft.rfftn(x, dim=(-2,-1))
+    nchannels = x.shape[1]
+    k_channels = slice(0,nchannels//2)
+    l_channels = slice(nchannels//2, nchannels)
+
+    idiv = ix[:,k_channels,:,:] * ik + ix[:,l_channels,:,:] * il
+    div = torch.fft.irfftn(idiv, dim=(-2,-1))
+
+    if div.dtype != x.dtype:
+        raise ValueError('divergence has wrong dtype')
+    return div
+
 class AndrewCNN(nn.Module):
-    def __init__(self, n_in: int, n_out: int, ReLU = 'ReLU') -> list:
+    def __init__(self, n_in: int, n_out: int, ReLU = 'ReLU', div=False) -> list:
         '''
         Packs sequence of 8 convolutional layers in a list.
         First layer has n_in input channels, and Last layer has n_out
         output channels
         '''
         super().__init__()
+        self.div = div
+        if div:
+            n_out *= 2
         blocks = []
         blocks.extend(make_block(n_in,128,5,ReLU))                #1
         blocks.extend(make_block(128,64,5,ReLU))                  #2
@@ -115,7 +144,14 @@ class AndrewCNN(nn.Module):
         blocks.extend(make_block(32,n_out,3,'False',False))       #8
         self.conv = nn.Sequential(*blocks)
     def forward(self, x):
-        return self.conv(x)
+        x = self.conv(x)
+        if self.div:
+            # This parameter, 10000, just to improve convergence
+            # Note it is not the part of the divergence procedure
+            # Physically, it brings gradients from physical scale (1000km)
+            # to non-dimensional scale
+            x = 10000. * divergence(x)
+        return x
     def compute_loss(self, x, ytrue):
         '''
         In case you want to use this block for training 
