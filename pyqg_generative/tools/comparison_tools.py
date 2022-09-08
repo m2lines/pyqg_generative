@@ -728,6 +728,71 @@ def plot_solution(operator='Operator1', resolution=48,
     axs[0][0].set_ylabel('upper layer')
     axs[1][0].set_ylabel('lower layer')
 
+def plot_difference(
+    configuration='eddy',
+    sampling='constant-0',
+    timestep='',
+    models=['Reference', 'OLSModel', 'MeanVarModel', 'CGANRegression'], 
+    labels=['lores', 'MSE', 'GZ', 'GAN']):
+    import json
+    with open('difference.json', 'r') as file:
+        difference = json.load(file)
+
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.size': 12})
+    fig, axs = plt.subplots(2,2, figsize=(10,5))
+    plt.subplots_adjust(wspace=0.2)
+
+    keys = []
+    for model in models:
+        postfix = '' if model.find('Reference')>-1 else '-' + str(sampling)
+        keys.append(f'{model}/{configuration}{timestep}{postfix}')
+
+    def resolution_slice(operator, model_discriptor):
+        resolutions=[48, 64, 96]
+        keys = [f'{operator}-{str(res)}/{model_discriptor}' for res in resolutions]
+        dist = [distrib_score(difference.get(key, {})) for key in keys]
+        spec = [spectral_score(difference.get(key, {})) for key in keys]
+        return xr.DataArray(dist, coords=[resolutions]), xr.DataArray(spec, coords=[resolutions])
+
+    markers = ['', 'o', 's', '>', '<', 'X', 'd']
+    colors = ['k', 'tab:blue', 'tab:orange', 'tab:green', 'tab:green', 'tab:red', 'tab:purple']
+    lss = ['--', '-', '-', '-', '--', '-', '-']
+
+    for row, operator in enumerate(['Operator1', 'Operator2']):
+        for key, label, marker, color, ls in zip(
+                            keys, labels, markers, colors, lss):
+            dist, spec = resolution_slice(operator, key)
+            dist.plot(ax=axs[row][0], label=label, marker=marker, color=color, lw=1.5, ls=ls)
+            spec.plot(ax=axs[row][1], label=label, marker=marker, color=color, lw=1.5, ls=ls)
+    
+    axs[0][0].set_title('Normalized distribution error')
+    axs[0][1].set_title('Normalized spectral error')
+    axs[0][0].set_ylabel('mean $\widetilde{W}_1(F_1,F_2)$')
+    axs[1][0].set_ylabel('mean $\widetilde{W}_1(F_1,F_2)$')
+    axs[0][1].set_ylabel('mean $\widetilde{L}_2(\mathcal{E}_1,\mathcal{E}_2)$')
+    axs[1][1].set_ylabel('mean $\widetilde{L}_2(\mathcal{E}_1,\mathcal{E}_2)$')
+
+    fig.text(0.91,0.54,'cut-off + exponential', rotation=-90)
+    fig.text(0.91,0.15,'cut-off + Gaussian', rotation=-90)
+
+    axs[0][1].legend(frameon=False, ncol=2)
+    for i in [0,1]:
+        for j in [0,1]:
+            if i==0:
+                axs[i][j].set_xticklabels([])
+                axs[i][j].set_xlabel('')
+            else:
+                axs[i][j].set_xlabel('resolution')
+            axs[i][j].set_xticks([48, 64, 96])
+            
+    axs[0][0].set_ylim([0, 0.22])
+    axs[1][0].set_ylim([0, 0.22])
+    axs[0][1].set_ylim([0,0.6])
+    axs[1][1].set_ylim([0,0.6])
+
+    return axs   
+
 if __name__ ==  '__main__':
     import argparse
     parser = argparse.ArgumentParser()
