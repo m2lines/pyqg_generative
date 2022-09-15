@@ -73,4 +73,12 @@ def subgrid_scores(true, mean, gen):
     ds['R2_residual'] = R2(ds.sp_gen_res, ds.sp_true_res)
     ds['L2_residual'] = L2(ds.sp_gen_res, ds.sp_true_res)
 
+    gen_res = gen - mean
+    true_res = true - mean
+
+    dims = [d for d in mean.dims if d != 'lev']
+    # xarray(numpyarray()) because suspect on the memory leak
+    ds['var_ratio'] = xr.DataArray(np.array((gen_res**2).mean(dims) / (true_res**2).mean(dims)), dims=['lev'])
+    del gen_res
+    del true_res
     return ds

@@ -339,7 +339,7 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
         values = values.values.ravel()
 
         xmin = 0 if var in ['KE', 'Ens'] else None
-        xmax = 1e-10 if var=='Ens' else None
+        xmax = 1e-10 if var=='Ens' and lev==0 else None
         points, density = PDF_histogram(values, xmin=xmin, xmax=xmax)
         return xr.DataArray(density, dims=f'{var}_{lev}', coords=[points])
 
@@ -474,7 +474,7 @@ def ensemble_dataset_read(model_path, target_path):
 
 def plot_panel_figure(operator='Operator1', resolution=48,
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
-    configuration = 'eddy',
+    configuration = 'eddy', density='PDF_Ens1',
     samplings = [], lss = [], lws = [], colors = [],
     markers = [], markersizes = [], markerfillstyles = [],
     markeredgewidths = [], labels = [], alphas = [],
@@ -644,16 +644,20 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     for model, line in zip([hires, target, lores, lores_3600, *models], 
         [dns_line, target_line, lores_line, lores_3600_line, *lines]):
         try:
-            model.PDF_Ens1.plot(ax=ax, markevery=2, **line)
+            model[density].plot(ax=ax, markevery=2, **line)
         except:
             pass
     ax.set_yscale('log')
-    ax.set_title('Upper enstrophy PDF')
     ax.set_ylabel('Probability density', fontsize=11)
-    ax.set_xlabel('relative enstrophy [$10^{-11}s^{-2}$]')
-    ax.set_xticks([0, 2e-11, 4e-11, 6e-11, 8e-11, 10e-11])
-    ax.set_xticklabels([0, 2, 4, 6, 8, 10])
-    ax.set_ylim([5e+7, 1e+12])
+    if density == 'PDF_Ens1':
+        ax.set_title('Upper enstrophy PDF')
+        ax.set_xlabel('relative enstrophy [$10^{-11}s^{-2}$]')
+        ax.set_xticks([0, 2e-11, 4e-11, 6e-11, 8e-11, 10e-11])
+        ax.set_xticklabels([0, 2, 4, 6, 8, 10])
+        ax.set_ylim([5e+7, 1e+12])
+    elif density == 'PDF_KE1':
+        ax.set_title('Upper KE PDF')
+        ax.set_xlabel('kinetic energy [$m^2s^{-2}$]')
     
     fig.align_ylabels()
     fig.align_xlabels()
@@ -733,7 +737,7 @@ def plot_difference(
     sampling='constant-0',
     timestep='',
     models=['Reference', 'OLSModel', 'MeanVarModel', 'CGANRegression'], 
-    labels=['lores', 'MSE', 'GZ', 'GAN']):
+    labels=['lores', 'MSE', 'GZ', 'GAN'], normalize=False):
     import json
     with open('difference.json', 'r') as file:
         difference = json.load(file)
@@ -756,13 +760,17 @@ def plot_difference(
         return xr.DataArray(dist, coords=[resolutions]), xr.DataArray(spec, coords=[resolutions])
 
     markers = ['', 'o', 's', '>', '<', 'X', 'd']
-    colors = ['k', 'tab:blue', 'tab:orange', 'tab:green', 'tab:green', 'tab:red', 'tab:purple']
-    lss = ['--', '-', '-', '-', '--', '-', '-']
+    colors = ['k'] + [f'C{j}' for j in range(0,10)]
+    lss = ['--', '-', '-', '-', '-', '-', '-']
 
     for row, operator in enumerate(['Operator1', 'Operator2']):
         for key, label, marker, color, ls in zip(
                             keys, labels, markers, colors, lss):
             dist, spec = resolution_slice(operator, key)
+            if normalize:
+                dist0, spec0 = resolution_slice(operator, keys[0])
+                dist = dist / dist0
+                spec = spec / spec0
             dist.plot(ax=axs[row][0], label=label, marker=marker, color=color, lw=1.5, ls=ls)
             spec.plot(ax=axs[row][1], label=label, marker=marker, color=color, lw=1.5, ls=ls)
     
@@ -785,13 +793,89 @@ def plot_difference(
             else:
                 axs[i][j].set_xlabel('resolution')
             axs[i][j].set_xticks([48, 64, 96])
-            
-    axs[0][0].set_ylim([0, 0.22])
-    axs[1][0].set_ylim([0, 0.22])
-    axs[0][1].set_ylim([0,0.6])
-    axs[1][1].set_ylim([0,0.6])
+    
+    if normalize:
+        for j in [0,1]:
+            axs[0][j].set_ylim(0,1.2)
+        for j in [0,1]:
+            axs[1][j].set_ylim(0,2)
+    else:
+        axs[0][0].set_ylim([0, 0.22])
+        axs[1][0].set_ylim([0, 0.22])
+        axs[0][1].set_ylim([0,0.6])
+        axs[1][1].set_ylim([0,0.6])
 
     return axs   
+
+def plot_offline_metrics(models=['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet'],
+    labels=['MSE', 'GZ', 'GAN', 'GAN', 'GAN-full', 'GAN-Unet'], dataset='offline_test.nc'):
+    
+    def L2(type='mean', model='OLSModel', operator='Operator1', resolution=64):
+        folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/'
+        file = os.path.join(folder, operator+'-'+str(resolution),model,dataset)
+        if os.path.exists(file):
+            ds = xr.open_dataset(file)
+            if type != 'var_ratio':
+                return float(ds['L2_'+type])
+            else:
+                return float(ds[type].mean())
+        else:
+            print('Wrong path', file)
+
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.size': 12})
+    markers = ['o', 's', '>', '>', 'X', 'd']
+    colors = [f'C{j}' for j in range(0,10)]
+    lss = ['-'] * 10
+    fig, axs = plt.subplots(2,4,figsize=(16,5))
+    plt.subplots_adjust(hspace=0.08, wspace=0.2)
+    for i, operator in enumerate(['Operator1', 'Operator2']):
+        for j, (model, label) in enumerate(zip(models, labels)):
+            res = [32, 48, 64, 96]
+            L2_mean     = [L2('mean', model, operator, resolution) for resolution in res]
+            L2_total    = [L2('total', model, operator, resolution) for resolution in res]
+            L2_residual = [L2('residual', model, operator, resolution) for resolution in res]
+            var_ratio = [L2('var_ratio', model, operator, resolution) for resolution in res]
+            
+            line = dict(marker=markers[j], color=colors[j], ls=lss[j])
+            
+            ax = axs[i][0]
+            ax.plot(res, L2_mean, label=label, **line)
+            
+            ax = axs[i][1]
+            ax.plot(res, L2_total, label=label, **line)
+            
+            ax = axs[i][2]
+            ax.plot(res, L2_residual, label=label, **line)
+            
+            ax = axs[i][3]
+            ax.plot(res, var_ratio, label=label, **line)
+    
+    if dataset == 'offline_test.nc':
+        for i in [0,1]:
+            axs[i][0].set_ylim([-0.05, 0.905])
+            axs[i][1].set_ylim([-0.02, 0.275])
+            axs[i][2].set_ylim([-0.2, 1.2])
+            axs[i][3].set_ylim([-0.2, 1.2])
+    else:
+        pass
+
+    for j in range(4):
+        axs[1][j].set_xlabel('resolution')
+        axs[1][j].set_xticks([32, 48, 64, 96])
+        axs[0][j].set_xticks([32, 48, 64, 96])
+        axs[0][j].set_xticklabels([])
+    axs[0][0].set_title('$L_2^{mean}$')
+    axs[0][1].set_title('$L_2^{sample}$')
+    axs[0][2].set_title('$L_2^{residual}$')
+    axs[0][3].set_title('$spread$')
+
+    axs[0][0].set_ylabel('cut-off + exponential')
+    axs[1][0].set_ylabel('cut-off + Gaussian')
+
+    axs[0][3].legend(bbox_to_anchor=(1,1))
+
+    return axs    
 
 if __name__ ==  '__main__':
     import argparse

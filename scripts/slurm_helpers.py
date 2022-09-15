@@ -45,6 +45,9 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         'echo " "',
         'scontrol show jobid -dd $SLURM_JOB_ID',
         'echo " "',
+        'echo "The number of alphafold processes:"',
+        'ps -e | grep -i alphafold | wc -l',
+        'echo " "',
         'module purge'
     ]
     singularity = 'singularity exec --nv ' \

@@ -10,7 +10,7 @@ def folder_iterator(
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [32, 48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
-    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div', 'CVAERegression-None'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
     Configuration = ['eddy', 'eddy-3600', 'jet-3600', 'jet', 'eddy-recompute'],

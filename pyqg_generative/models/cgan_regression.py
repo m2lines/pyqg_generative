@@ -202,7 +202,7 @@ def evaluate_prediction(net, ds, nruns=None, M=16):
     return subgrid_scores(ds['q_forcing_advection'], 
                    preds['q_forcing_advection_mean'],
                    preds['q_forcing_advection']) \
-                   [['L2_mean', 'L2_total', 'L2_residual']]
+                   [['L2_mean', 'L2_total', 'L2_residual', 'var_ratio']]
 
 def loss_to_xarray(optim_loss, log_train, log_test):
     ds = log_to_xarray(optim_loss)

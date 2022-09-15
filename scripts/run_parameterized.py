@@ -25,7 +25,7 @@ def decor_to_nsteps(decorrelation, dt):
 ntask = 0
 for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['OLSModel-div', 'CGANRegression-div']:
+        for model in ['CVAERegression-None']:
             #input()
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
