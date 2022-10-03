@@ -158,6 +158,7 @@ if __name__ ==  '__main__':
     parser.add_argument('--sampling', type=str, default="AR1")
     parser.add_argument('--nsteps', type=int, default=1)
     parser.add_argument('--initial_condition', type=str, default="no")
+    parser.add_argument('--model_weight', type=float, default=1.0)
     args = parser.parse_args()
     print(args)
     
@@ -182,7 +183,7 @@ if __name__ ==  '__main__':
         with open('model/model_args.json') as file:
                 model_args = json.load(file)
 
-        model = eval(model_args.pop('model'))(**model_args)
+        model = args.model_weight * eval(model_args.pop('model'))(**model_args)
         parameterization = \
             dict(self=model, sampling=args.sampling, nsteps=args.nsteps)
         
@@ -196,7 +197,7 @@ if __name__ ==  '__main__':
             with open('model/model_args.json') as file:
                 model_args = json.load(file)
 
-            model = eval(model_args.pop('model'))(**model_args)
+            model = args.model_weight * eval(model_args.pop('model'))(**model_args)
             parameterization = \
                 dict(self=model, sampling=args.sampling, nsteps=args.nsteps)
         else:

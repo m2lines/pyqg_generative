@@ -475,6 +475,7 @@ def ensemble_dataset_read(model_path, target_path):
 def plot_panel_figure(operator='Operator1', resolution=48,
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
     configuration = 'eddy', density='PDF_Ens1',
+    models_weights = [],
     samplings = [], lss = [], lws = [], colors = [],
     markers = [], markersizes = [], markerfillstyles = [],
     markeredgewidths = [], labels = [], alphas = [],
@@ -522,7 +523,9 @@ def plot_panel_figure(operator='Operator1', resolution=48,
 
     nmodels = len(models_folders)
     samplings = style_complete(samplings, 'constant-0', nmodels)
-    samplings = [configuration+'-'+s for s in samplings]
+    model_weights = style_complete(models_weights, '', nmodels)
+    model_weights = ['' if w=='' or w==1 else str(w)+'-' for w in model_weights]
+    samplings = [w+configuration+'-'+s for s,w in zip(samplings,model_weights)]
 
     lss = style_complete(lss, '-', nmodels)
     lws = style_complete(lws, 1, nmodels)
@@ -665,6 +668,126 @@ def plot_panel_figure(operator='Operator1', resolution=48,
 
     return axs
 
+def plot_PDFs(operator='Operator1', resolution=48,
+    models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
+    configuration = 'eddy',
+    models_weights = [],
+    samplings = [], lss = [], lws = [], colors = [],
+    markers = [], markersizes = [], markerfillstyles = [],
+    markeredgewidths = [], labels = [], alphas = [],
+    read_cache=True):
+    '''
+    Each style parameter may be specified for a few experiments
+    or not defined. Autocompletion with default values will be
+    performed
+    '''
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.size': 12})
+    fig, axs = plt.subplots(2,3, figsize=(14,6))
+    plt.subplots_adjust(wspace=0.3, hspace=0.65)
+    
+    xlim=[1e-5, 2e-4]; ylim1=[1e-1,2e+2]; ylim2=[1e-2,1e+1]
+    if resolution==64:
+        ylim2=[5e-3,1e+1]
+    elif resolution==96:
+        xlim=[1e-5, 3e-4]
+        ylim1=[1e-2, 2e+2]
+        ylim2=[1e-4,1e+1]
+
+    delta = 0.25 if configuration=='eddy' else 0.1
+
+    def ave_lev(arr):
+        return op.ave_lev(arr, delta)
+
+    def dataset_read(path, read_cache=read_cache):
+        return dataset_smart_read(path, delta, read_cache=read_cache)
+    
+    def style_complete(property, default, nm):
+        '''
+        If property is defined not for every model, 
+        complete with default value
+        '''
+        if not isinstance(property, list):
+            property = nm*[property]
+        np = len(property)
+        if np < nm:
+            if isinstance(default, list):
+                property += default[np:nm]
+            else:
+                property += [default]*(nm-np)
+        return property
+
+    nmodels = len(models_folders)
+    samplings = style_complete(samplings, 'constant-0', nmodels)
+    model_weights = style_complete(models_weights, '', nmodels)
+    model_weights = ['' if w=='' or w==1 else str(w)+'-' for w in model_weights]
+    samplings = [w+configuration+'-'+s for s,w in zip(samplings,model_weights)]
+
+    lss = style_complete(lss, '-', nmodels)
+    lws = style_complete(lws, 1, nmodels)
+    colors = style_complete(colors, [f'C{j}' for j in range(nmodels)], nmodels) # just default colors
+    markers = style_complete(markers, ['o', 's', '>', '<', 'X', 'D', '*', 'v', 'p', 'P', 'd'], nmodels)
+    markersizes = style_complete(markersizes, 4, nmodels)
+    markerfillstyles = style_complete(markerfillstyles, 'full', nmodels)
+    markeredgewidths = style_complete(markeredgewidths, 1, nmodels)
+    labels = style_complete(labels, models_folders, nmodels)
+    alphas = style_complete(alphas, 1, nmodels)
+    
+    print(nmodels, labels)
+
+    dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
+    target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
+    lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
+    lores_3600_line = {'color': 'tab:purple', 'ls': '--', 'lw': 2, 'label': 'lores, $1h$'}
+
+    lines = []
+    for j in range(nmodels):
+        lines.append({'ls': lss[j], 'lw': lws[j], 'color': colors[j], 
+            'marker': markers[j], 'markersize': markersizes[j],
+            'fillstyle': markerfillstyles[j], 'markeredgewidth': markeredgewidths[j],
+            'label': labels[j], 'alpha': alphas[j]})
+    
+    hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc', read_cache=read_cache)
+    target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
+    lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    lores_3600 = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_3600_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    
+    models = []
+    for folder, sampling in zip(models_folders, samplings):
+        try:
+            ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
+        except:
+            ds = None
+        models.append(ds) 
+
+    offline = xr.open_dataset(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/{operator}-{str(resolution)}/0.nc')
+    offline['paramspec_KEfluxr'] = ave_lev(spectrum(type='cospectrum', averaging=True, truncate=True)(-offline.psi, offline.q_forcing_advection))
+    offline['paramspec_APEfluxr'] = 0*offline['paramspec_KEfluxr']
+
+    for row, layer in zip([0,1], ['Upper', 'Lower']):
+        for col, xlabel, dens in zip([0,1,2], ['potential vorticity [$1/s$]', 'relative enstrophy [$1/s^2$]', 'kinetic energy [$m^2/s^2$]'], ['PDF_q', 'PDF_Ens', 'PDF_KE']):
+            density = dens+str(row+1)
+            ax = axs[row][col]
+            for model, line in zip([hires, target, lores, *models], 
+                [dns_line, target_line, lores_line, *lines]):
+                try:
+                    model[density].plot(ax=ax, markevery=2, **line)
+                except:
+                    pass
+            ax.set_yscale('log')
+            ax.set_ylabel('Probability density', fontsize=11)
+            title = dict(PDF_q='PV $q$', PDF_Ens='$1/2|curl(\mathbf{v})|^2$', PDF_KE='$1/2|\mathbf{v}|^2$')[dens]
+            ax.set_title(layer+' '+title)
+            ax.set_xlabel(xlabel)
+            if dens=='PDF_KE' and layer=='Lower':
+                ax.set_xticks([0, 0.00025, 0.0005])
+
+    fig.align_ylabels()
+    fig.align_xlabels()
+    axs[1][2].legend(frameon=False, ncol=2, fontsize=9)
+
+    return axs
+
 def plot_solution(operator='Operator1', resolution=48, 
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
     configuration = 'eddy', samplings=None, labels=None,
@@ -736,8 +859,12 @@ def plot_difference(
     configuration='eddy',
     sampling='constant-0',
     timestep='',
+    model_weight = 1,
     models=['Reference', 'OLSModel', 'MeanVarModel', 'CGANRegression'], 
-    labels=['lores', 'MSE', 'GZ', 'GAN'], normalize=False):
+    labels=['lores', 'MSE', 'GZ', 'GAN'], 
+    markers = ['', 'o', 's', '>', '<', 'X', 'd'],
+    colors = ['k'] + [f'C{j}' for j in range(0,10)],
+    normalize=False):
     import json
     with open('difference.json', 'r') as file:
         difference = json.load(file)
@@ -750,7 +877,8 @@ def plot_difference(
     keys = []
     for model in models:
         postfix = '' if model.find('Reference')>-1 else '-' + str(sampling)
-        keys.append(f'{model}/{configuration}{timestep}{postfix}')
+        prefix = str(model_weight) + '-' if model_weight != 1 and model.find('Reference')==-1 else ''
+        keys.append(f'{model}/{prefix}{configuration}{timestep}{postfix}')
 
     def resolution_slice(operator, model_discriptor):
         resolutions=[48, 64, 96]
@@ -759,8 +887,6 @@ def plot_difference(
         spec = [spectral_score(difference.get(key, {})) for key in keys]
         return xr.DataArray(dist, coords=[resolutions]), xr.DataArray(spec, coords=[resolutions])
 
-    markers = ['', 'o', 's', '>', '<', 'X', 'd']
-    colors = ['k'] + [f'C{j}' for j in range(0,10)]
     lss = ['--', '-', '-', '-', '-', '-', '-']
 
     for row, operator in enumerate(['Operator1', 'Operator2']):
@@ -824,9 +950,9 @@ def plot_offline_metrics(models=['OLSModel', 'MeanVarModel', 'CGANRegression', '
 
     import matplotlib.pyplot as plt
     plt.rcParams.update({'font.size': 12})
-    markers = ['o', 's', '>', '>', 'X', 'd']
-    colors = [f'C{j}' for j in range(0,10)]
-    lss = ['-'] * 10
+    markers = ['o', 's', '>', '<', 'X', 'd', 'v', '^', '1', '2', '3', '4', '*', 'p', 'h']
+    colors = [f'C{j}' for j in range(0,20)]
+    lss = ['-'] * 20
     fig, axs = plt.subplots(2,4,figsize=(16,5))
     plt.subplots_adjust(hspace=0.08, wspace=0.2)
     for i, operator in enumerate(['Operator1', 'Operator2']):

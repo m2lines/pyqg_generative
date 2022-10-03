@@ -10,7 +10,7 @@ def folder_iterator(
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [32, 48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
-    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div', 'CVAERegression-None'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div', 'CVAERegression-None', 'CVAERegression-None-1000'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
     Configuration = ['eddy', 'eddy-3600', 'jet-3600', 'jet', 'eddy-recompute'],
@@ -28,21 +28,27 @@ def folder_iterator(
                             continue
                         if decorrelation>0 and sampling=='constant':
                             continue
-                        for configuration in Configuration:
-                            folder = base_folder + _operator + '/' + model
-                            subfolder = configuration + '-' + sampling + '-' + str(decorrelation)
-                            folder = folder + '/' + subfolder
-                            if not os.path.exists(folder):
-                                continue
-                            nfiles = len(glob.glob(os.path.join(folder, '*.nc')))
-                            if not return_blowup:
-                                if nfiles != 10:
+                        for model_weight in [0.5, 0.8, 1]:
+                            for configuration in Configuration:
+                                folder = base_folder + _operator + '/' + model
+                                
+                                if model_weight == 1:
+                                    subfolder = configuration + '-' + sampling + '-' + str(decorrelation)
+                                else:
+                                    subfolder = str(model_weight) + '-' + configuration + '-' + sampling + '-' + str(decorrelation)
+
+                                folder = folder + '/' + subfolder
+                                if not os.path.exists(folder):
                                     continue
-                            
-                            conf = 'eddy' if configuration.find('eddy') > -1 else 'jet'
-                            reference = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{conf}/reference_256/'+operator+'-'+str(resolution)+'.nc'
-                            key = _operator + '/' + model + '/' + subfolder
-                            yield folder, reference, key
+                                nfiles = len(glob.glob(os.path.join(folder, '*.nc')))
+                                if not return_blowup:
+                                    if nfiles != 10:
+                                        continue
+                                
+                                conf = 'eddy' if configuration.find('eddy') > -1 else 'jet'
+                                reference = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{conf}/reference_256/'+operator+'-'+str(resolution)+'.nc'
+                                key = _operator + '/' + model + '/' + subfolder
+                                yield folder, reference, key
 
 os.system('rm /home/pp2681/pyqg_generative/notebooks/difference/*.sh')
 os.system('rm /home/pp2681/pyqg_generative/notebooks/difference/output/*')

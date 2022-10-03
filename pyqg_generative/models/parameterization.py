@@ -28,8 +28,8 @@ class Parameterization(pyqg.QParameterization):
         
         return m.PV_forcing
     
-    def test_offline(self, ds: xr.Dataset, ensemble_size=10):
-        preds = self.predict(ds) # return sample, mean and var
+    def test_offline(self, ds: xr.Dataset, ensemble_size=1000):
+        preds = self.predict(ds, ensemble_size) # return sample, mean and var
         preds.attrs = ds.attrs
         
         target = 'q_forcing_advection'
