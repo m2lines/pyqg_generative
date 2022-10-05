@@ -171,13 +171,10 @@ if __name__ ==  '__main__':
             datasets[key].to_netcdf(os.path.join(key, f'{args.ensemble_member}.nc'))
     
     if args.reference == "yes":
-        Nc = [48, 64, 96]
-
-        pyqg_params = ConfigurationDict(eval(args.pyqg_params))
-        for nc in Nc:
-            key = f'reference_3600_{nc}'
-            os.system('mkdir -p '+ key)
-            run_simulation(pyqg_params.nx(nc)._update({'dt': 3600})).to_netcdf(os.path.join(key, f'{args.ensemble_member}.nc'))
+        print(args.pyqg_params)
+        run_simulation(eval(args.pyqg_params)).to_netcdf(
+            os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
+        )
 
     if args.parameterization == "yes":
         with open('model/model_args.json') as file:

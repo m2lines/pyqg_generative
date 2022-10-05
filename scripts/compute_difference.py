@@ -10,7 +10,8 @@ def folder_iterator(
     base_folder='/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/', 
     Resolution = [32, 48, 64, 96],
     Operator = ['Operator1', 'Operator2'],
-    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div', 'CVAERegression-None', 'CVAERegression-None-1000'],
+    Model = ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-None-recompute', 'CGANRegression-Unet', 'OLSModel-div', 'CGANRegression-div', 'CVAERegression-None', 'CVAERegression-None-1000',
+             'OLSModel-64', 'MeanVarModel-64', 'CGANRegression-64', 'CGANRegression-recompute-64', 'CVAERegression-None-64', 'CVAERegression-None-1000-64'],
     Sampling = ['AR1', 'constant'],
     Decorrelation = [0, 12, 24, 36, 48],
     Configuration = ['eddy', 'eddy-3600', 'jet-3600', 'jet', 'eddy-recompute'],
@@ -30,7 +31,11 @@ def folder_iterator(
                             continue
                         for model_weight in [0.5, 0.8, 1]:
                             for configuration in Configuration:
-                                folder = base_folder + _operator + '/' + model
+                                if model[-3:] == '-64' and resolution==64: # These models are already computed
+                                    model_folder = model[:-3]
+                                else:
+                                    model_folder = model
+                                folder = base_folder + _operator + '/' + model_folder
                                 
                                 if model_weight == 1:
                                     subfolder = configuration + '-' + sampling + '-' + str(decorrelation)

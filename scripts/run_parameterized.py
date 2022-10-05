@@ -25,9 +25,9 @@ def decor_to_nsteps(decorrelation, dt):
 ntask = 0
 for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        if ntask>1500:
-            input()
-        for model in ['OLSModel', 'MeanVarModel', 'CGANRegression', 'CGANRegression-recompute', 'CGANRegression-Unet', 'CGANRegression-None-recompute', 'CVAERegression-None', 'CVAERegression-None-1000', 'OLSModel-div', 'CGANRegression-div']:
+        print(operator, resolution)
+        input()
+        for model in ['OLSModel-64', 'MeanVarModel-64', 'CGANRegression-64', 'CGANRegression-recompute-64', 'CVAERegression-None-64', 'CVAERegression-None-1000-64']:
             _operator = operator+'-'+str(resolution)
             for sampling in ['AR1', 'constant']:
                 for decorrelation in [0]: # in hours; 0 means tau=dt
@@ -37,7 +37,7 @@ for resolution in [48, 64, 96]:
                         continue
                     if sampling=='AR1' and decorrelation==0:
                         continue
-                    for model_weight in [0.5]:
+                    for model_weight in [1]:
                         for basic_params, name in zip([EDDY_PARAMS, EDDY_PARAMS, JET_PARAMS, JET_PARAMS], ['eddy', 'eddy-3600', 'jet', 'jet-3600']):
                             for ens in range(N_ENS):
                                 model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/' + _operator + '/' + model
