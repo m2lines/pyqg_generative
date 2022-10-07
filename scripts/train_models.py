@@ -5,9 +5,9 @@ def job_name(model, operator, resolution):
       '-' + dict(OLSModel='ls', CGANRegression='gan', CVAERegression='vae', MeanVarModel='gz')[model] + \
       '-' + str(resolution)
 
-for resolution in [64, 96]:
+for resolution in [32, 48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model, folder in zip(['CVAERegression'], ['CVAERegression-None-1000']):
+        for model, folder in zip(['CVAERegression', 'CVAERegression'], ['CVAERegression-0.1', 'CVAERegression-0.1-None']):
             _operator = operator+'-'+str(resolution)
             train_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/' + _operator + '/*.nc'
             transfer_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/jet/' + _operator + '/*.nc'
@@ -22,6 +22,14 @@ for resolution in [64, 96]:
                 model_args = dict(decoder_var='fixed')
             elif folder == 'CVAERegression-None':
                 model_args = dict(regression='None')
+                fit_args = dict(num_epochs=200)
+                hours = 40 if resolution==96 else 12
+            elif folder == 'CVAERegression-0.1':
+                model_args = dict(decoder_var=0.1)
+                fit_args = dict(num_epochs=200)
+                hours = 40 if resolution==96 else 12
+            elif folder == 'CVAERegression-0.1-None':
+                model_args = dict(decoder_var=0.1, regression='None')
                 fit_args = dict(num_epochs=200)
                 hours = 40 if resolution==96 else 12
             elif folder == 'CVAERegression-None-1000':

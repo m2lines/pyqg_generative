@@ -191,7 +191,9 @@ class CVAERegression(Parameterization):
         elif self.decoder_var == 'fixed':
             var_p = 1.
         else:
-            print('wrong var specification')
+            # just specify value :) In most cases 0.1 roughly
+            # corresponds to the mean MSE for subgrid forcing
+            var_p = self.decoder_var
 
         # sum over pixels and channels and average over batch
         loss_recon = 1 / (2.*var_p) * MSE_pointwise.sum(dim=(1,2,3)).mean()
