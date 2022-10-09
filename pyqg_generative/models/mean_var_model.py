@@ -83,7 +83,7 @@ class MeanVarModel(Parameterization):
                 apply_function(self.net_mean, X) + noise * (apply_function(self.net_var, X))**0.5
                 ).squeeze().astype('float64')
           
-    def predict(self, ds):
+    def predict(self, ds, M=1000):
         X = self.x_scale.normalize(extract(ds, 'q'))
         mean = xr.DataArray(
             self.y_scale.denormalize(

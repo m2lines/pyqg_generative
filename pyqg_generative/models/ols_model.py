@@ -57,7 +57,7 @@ class OLSModel(Parameterization):
             apply_function(self.net, X)
             ).squeeze().astype('float64')
     
-    def predict(self, ds):
+    def predict(self, ds, M=1000):
         '''
         ds - standard dataset of
         run x time x nlev x ny x nx
