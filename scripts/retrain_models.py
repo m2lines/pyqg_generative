@@ -8,7 +8,10 @@ def job_name(model, operator, resolution):
 NUM_REALIZATIONS = 5
 
 def fail_function(model_folder):
+    import os
     error = model_folder+'/training.err'
+    if not os.path.exists(error):
+        return True
     with open(error) as f:
         for line in f.readlines():
             if 'Aborted' in line:
@@ -17,9 +20,9 @@ def fail_function(model_folder):
 
 for resolution in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        print(resolution, operator)
-        input()
-        for model, folder in zip(['OLSModel'], ['OLSModel']):
+        for model, folder in zip(['OLSModel', 'CVAERegression'], ['OLSModel', 'CVAERegression-None']):
+            print(resolution, operator, folder)
+            input()
             for realization in range(0,NUM_REALIZATIONS):
                 _operator = operator+'-'+str(resolution)
                 train_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/' + _operator + '/*.nc'
@@ -32,8 +35,12 @@ for resolution in [48, 64, 96]:
                     fit_args = {}
                     model_args = {}
                     
-                    if model == 'OLSModel':
+                    if folder == 'OLSModel':
                         hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
+                    elif folder == 'CVAERegression-None':
+                        model_args = dict(regression='None')
+                        fit_args = dict(num_epochs=200)
+                        hours = 20 if resolution==96 else 10
                     mem=32
                     
                     hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \

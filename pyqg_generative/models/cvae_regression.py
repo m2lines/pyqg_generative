@@ -284,8 +284,8 @@ def train_CVAE(net, ds_train, ds_test,
         log_train.append(evaluate_prediction(net, ds_train, nruns))
         log_test.append(evaluate_prediction(net, ds_test, nruns))
 
-        torch.save(net.encoder.state_dict(),f'model/encoder_{epoch+1}.pt')
-        torch.save(net.decoder.state_dict(),f'model/decoder_{epoch+1}.pt')
+        #torch.save(net.encoder.state_dict(),f'model/encoder_{epoch+1}.pt')
+        #torch.save(net.decoder.state_dict(),f'model/decoder_{epoch+1}.pt')
         
         t = time()
         print('[%d/%d] [%.2f/%.2f] Loss: [%.3f] Var: [%.3f,%.3f] L2_mean: [%.3f,%.3f] L2_total: [%.3f,%.3f] L2_res: [%.3f,%.3f] Var_ratio: [%.3f, %.3f]' 
