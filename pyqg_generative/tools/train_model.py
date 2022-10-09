@@ -20,7 +20,7 @@ ds = xr.open_mfdataset(args.train_path, combine='nested', concat_dim='run')
 train = ds.isel(run=slice(0,250))
 validate = ds.isel(run=slice(250,275))
 test = ds.isel(run=slice(275,300))
-transfer = xr.open_mfdataset(args.transfer_path, combine='nested', concat_dim='run')
+transfer = xr.open_mfdataset(args.transfer_path, combine='nested', concat_dim='run').isel(run=slice(0,25))
 
 model = eval(args.model)(**eval(args.model_args))
 model.fit(train, validate, **eval(args.fit_args))

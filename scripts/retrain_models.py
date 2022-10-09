@@ -5,13 +5,13 @@ def job_name(model, operator, resolution):
       dict(OLSModel='ls', CGANRegression='gan', CVAERegression='vae', MeanVarModel='gz')[model] + \
       str(resolution)
 
-NUM_REALIZATIONS = 5
+NUM_REALIZATIONS = 3
 
-CONFIGURATION = 'eddy'; TRANSFER = 'jet'
-MODELS_FOLDER = 'models_retrain'
+#CONFIGURATION = 'eddy'; TRANSFER = 'jet'
+#MODELS_FOLDER = 'models_retrain'
 
-#CONFIGURATION = 'jet'; TRANSFER = 'eddy'
-#MODELS_FOLDER = 'models_jet'
+CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
+MODELS_FOLDER = 'models_jet'
 
 def fail_function(model_folder):
     import os
@@ -33,10 +33,10 @@ def copy_mean_model(target_folder, source_folder):
         os.system(f'cp {source_folder}/model/net.pt {target_folder}/model/net_mean.pt')
         os.system(f'cp {source_folder}/model/*scale* {target_folder}/model/')
 
-for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel', 'CGANRegression'], ['OLSModel', 'CVAERegression-None', 'MeanVarModel', 'CGANRegression']):
+for model, folder in zip(['OLSModel', 'CVAERegression'], ['OLSModel', 'CVAERegression-None']):
     for resolution in [48, 64, 96]:
         for operator in ['Operator1', 'Operator2']:
-            print(resolution, operator, folder)
+            print(resolution, operator, folder, CONFIGURATION)
             input()
             for realization in range(0,NUM_REALIZATIONS):
                 _operator = operator+'-'+str(resolution)
