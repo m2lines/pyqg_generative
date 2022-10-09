@@ -7,6 +7,12 @@ def job_name(model, operator, resolution):
 
 NUM_REALIZATIONS = 5
 
+CONFIGURATION = 'eddy'; TRANSFER = 'jet'
+MODELS_FOLDER = 'models_retrain'
+
+#CONFIGURATION = 'jet'; TRANSFER = 'eddy'
+#MODELS_FOLDER = 'models_jet'
+
 def fail_function(model_folder):
     import os
     error = model_folder+'/training.err'
@@ -34,32 +40,33 @@ for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel', 'CGANReg
             input()
             for realization in range(0,NUM_REALIZATIONS):
                 _operator = operator+'-'+str(resolution)
-                train_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy/' + _operator + '/*.nc'
-                transfer_path = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/jet/' + _operator + '/*.nc'
-                model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + folder+'-'+str(realization)
+                train_path = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{CONFIGURATION}/' + _operator + '/*.nc'
+                transfer_path = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{TRANSFER}/' + _operator + '/*.nc'
+                model_folder = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{MODELS_FOLDER}/' + _operator + '/' + folder+'-'+str(realization)
                 script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/train_model.py'
 
                 if folder in ['MeanVarModel', 'CGANRegression']:
                     copy_mean_model(model_folder, 
-                        '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + 'OLSModel-'+str(realization))
+                        f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{MODELS_FOLDER}/' + _operator + '/' + 'OLSModel-'+str(realization))
 
                 if fail_function(model_folder):                
                     # basic parameters
                     fit_args = {}
                     model_args = {}
+                    hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution] 
                     
-                    if folder in ['OLSModel', 'MeanVarModel']:
-                        hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
+                    if folder == 'CGANRegression':
+                        model_args = dict(nx=resolution)
                     elif folder == 'CVAERegression-None':
                         model_args = dict(regression='None')
                         fit_args = dict(num_epochs=200)
                         hours = 20 if resolution==96 else 10
-                    elif folder == 'CGANRegression':
-                        hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
-                        model_args = dict(nx=resolution)
+                        
                     mem=32
                     
-                    hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \
-                        'job-name': job_name(model, operator, resolution), 'output': 'training.txt', 'error': 'training.err'})
+                    hpc = DEFAULT_HPC._update(
+                        {'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \
+                        'job-name': CONFIGURATION[0]+job_name(model, operator, resolution), 
+                        'output': 'training.txt', 'error': 'training.err'})
                     args = dict(model=model, train_path=train_path, transfer_path=transfer_path, model_args=model_args, fit_args=fit_args)
                     run_experiment(model_folder, script_py, hpc, args, delete=False)
