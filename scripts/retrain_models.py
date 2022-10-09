@@ -27,7 +27,7 @@ def copy_mean_model(target_folder, source_folder):
         os.system(f'cp {source_folder}/model/net.pt {target_folder}/model/net_mean.pt')
         os.system(f'cp {source_folder}/model/*scale* {target_folder}/model/')
 
-for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel'], ['OLSModel', 'CVAERegression-None', 'MeanVarModel']):
+for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel', 'CGANRegression'], ['OLSModel', 'CVAERegression-None', 'MeanVarModel', 'CGANRegression']):
     for resolution in [48, 64, 96]:
         for operator in ['Operator1', 'Operator2']:
             print(resolution, operator, folder)
@@ -39,7 +39,7 @@ for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel'], ['OLSMo
                 model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + folder+'-'+str(realization)
                 script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/train_model.py'
 
-                if folder == 'MeanVarModel':
+                if folder in ['MeanVarModel', 'CGANRegression']:
                     copy_mean_model(model_folder, 
                         '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + 'OLSModel-'+str(realization))
 
@@ -48,12 +48,15 @@ for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel'], ['OLSMo
                     fit_args = {}
                     model_args = {}
                     
-                    if folder == 'OLSModel' or 'MeanVarModel':
+                    if folder in ['OLSModel', 'MeanVarModel']:
                         hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
                     elif folder == 'CVAERegression-None':
                         model_args = dict(regression='None')
                         fit_args = dict(num_epochs=200)
                         hours = 20 if resolution==96 else 10
+                    elif folder == 'CGANRegression':
+                        hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
+                        model_args = dict(nx=resolution)
                     mem=32
                     
                     hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \

@@ -65,7 +65,11 @@ class MeanVarModel(Parameterization):
         self.x_scale.write('x_scale.json')
         self.y_scale.write('y_scale.json')
         save_model_args('MeanVarModel')
-        log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+        try:
+            log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+        except:
+            # Nothing to save if CNN was read from file
+            pass
         log_to_xarray(self.net_var.log_dict).to_netcdf('model/stats_var.nc')
 
     def load_mean(self, folder):

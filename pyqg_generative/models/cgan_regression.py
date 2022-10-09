@@ -55,7 +55,8 @@ class CGANRegression(Parameterization):
         self.G.apply(weights_init)
         self.D.apply(weights_init)
 
-        self.load_model(folder)
+        self.load_mean(folder)
+        self.load_GAN(folder)
     
     def fit(self, ds_train, ds_test, num_epochs=50, num_epochs_regression=50, 
         batch_size=64, learning_rate=2e-4, nruns=5):
@@ -64,10 +65,13 @@ class CGANRegression(Parameterization):
             prepare_PV_data(ds_train, ds_test)
         
         if self.regression != 'None':
-            train(self.net_mean,
-                X_train, Y_train,
-                X_test, Y_test,
-                num_epochs_regression, batch_size, 0.001)
+            if self.load_mean('model'):
+                print('Net mean is loaded instead of training')
+            else:
+                train(self.net_mean,
+                    X_train, Y_train,
+                    X_test, Y_test,
+                    num_epochs_regression, batch_size, 0.001)
         
         self.save_model(
             *train_CGAN(self, ds_train, ds_test,
@@ -78,13 +82,8 @@ class CGANRegression(Parameterization):
     def save_model(self, optim_loss, log_train, log_test):
         stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
         stats.to_netcdf('model/stats.nc')
-        if self.regression != 'None':
-            log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
-            print('Read generator/discriminator from optimal epoch ', epoch)
-            self.G.load_state_dict(torch.load(f'model/G_{epoch}.pt', map_location='cpu'))
-            self.D.load_state_dict(torch.load(f'model/D_{epoch}.pt', map_location='cpu'))
-        else:
-            print('The Last epoch is used for prediction')
+        print('Optimal epoch is ', epoch)
+        print('The Last epoch is used for prediction')
 
         #os.system('rm model/G_*.pt')
         #os.system('rm model/D_*.pt')
@@ -97,18 +96,27 @@ class CGANRegression(Parameterization):
         self.y_scale.write('y_scale.json')
         save_model_args('CGANRegression', regression=self.regression, nx=self.nx, generator=self.generator, div=self.div)
 
-    def load_model(self, folder):
+    def load_mean(self, folder):
+        if exists(f'{folder}/net_mean.pt'):
+            print(f'reading CGANRegression mean from {folder}')
+            self.net_mean.load_state_dict(
+                torch.load(f'{folder}/net_mean.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
+            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
+            return True
+        else:
+            False
+
+    def load_GAN(self, folder):
         if exists(f'{folder}/G.pt'):
-            print(f'reading CGANRegression from {folder}')
+            print(f'reading CGANRegression G, D from {folder}')
             self.G.load_state_dict(
                 torch.load(f'{folder}/G.pt', map_location='cpu'))
             self.D.load_state_dict(
                 torch.load(f'{folder}/D.pt', map_location='cpu'))
-            if self.regression != 'None':
-                self.net_mean.load_state_dict(
-                    torch.load(f'{folder}/net_mean.pt', map_location='cpu'))
-            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
-            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
+            return True
+        else:
+            False
 
     def generate(self, x, z=None):
         dims = (x.shape[0], self.n_latent, x.shape[2], x.shape[3])
@@ -300,8 +308,8 @@ def train_CGAN(net, ds_train, ds_test,
         log_train.append(evaluate_prediction(net, ds_train, nruns))
         log_test.append(evaluate_prediction(net, ds_test, nruns))
         
-        torch.save(net.G.state_dict(),f'model/G_{epoch+1}.pt')
-        torch.save(net.D.state_dict(),f'model/D_{epoch+1}.pt')
+        #torch.save(net.G.state_dict(),f'model/G_{epoch+1}.pt')
+        #torch.save(net.D.state_dict(),f'model/D_{epoch+1}.pt')
         
         t = time()
         
