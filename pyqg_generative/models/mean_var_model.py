@@ -28,7 +28,8 @@ class MeanVarModel(Parameterization):
         self.net_mean = AndrewCNN(2,2)
         self.net_var = VarCNN(2,2)
 
-        self.load_model(folder)
+        self.load_mean(folder)
+        self.load_var(folder)
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
         batch_size=64, learning_rate=0.001):
@@ -36,10 +37,13 @@ class MeanVarModel(Parameterization):
         X_train, Y_train, X_test, Y_test, self.x_scale, self.y_scale = \
             prepare_PV_data(ds_train, ds_test)
         
-        train(self.net_mean,
-            X_train, Y_train,
-            X_test, Y_test,
-            num_epochs, batch_size, learning_rate)
+        if self.load_mean('model'):
+            print('Net mean is loaded instead of training')
+        else:
+            train(self.net_mean,
+                X_train, Y_train,
+                X_test, Y_test,
+                num_epochs, batch_size, learning_rate)
 
         Yhat_train = apply_function(self.net_mean, X_train)
         Yhat_test = apply_function(self.net_mean, X_test)
@@ -64,15 +68,25 @@ class MeanVarModel(Parameterization):
         log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
         log_to_xarray(self.net_var.log_dict).to_netcdf('model/stats_var.nc')
 
-    def load_model(self, folder):
+    def load_mean(self, folder):
         if exists(f'{folder}/net_mean.pt'):
-            print(f'reading MeanVarModel from {folder}')
+            print(f'reading MeanVarModel mean from {folder}')
             self.net_mean.load_state_dict(
                 torch.load(f'{folder}/net_mean.pt', map_location='cpu'))
-            self.net_var.load_state_dict(
-                torch.load(f'{folder}/net_var.pt', map_location='cpu'))
             self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
             self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
+            return True
+        else:
+            False
+
+    def load_var(self, folder):
+        if exists(f'{folder}/net_var.pt'):
+            print(f'reading MeanVarModel var from {folder}')
+            self.net_var.load_state_dict(
+                torch.load(f'{folder}/net_var.pt', map_location='cpu'))
+            return True
+        else:
+            False
 
     def generate_latent_noise(self, ny, nx):
         return np.random.randn(2, ny, nx)

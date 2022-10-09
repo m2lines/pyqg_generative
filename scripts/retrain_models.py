@@ -18,9 +18,18 @@ def fail_function(model_folder):
                 return True
     return False
 
-for resolution in [48, 64, 96]:
-    for operator in ['Operator1', 'Operator2']:
-        for model, folder in zip(['OLSModel', 'CVAERegression'], ['OLSModel', 'CVAERegression-None']):
+def copy_mean_model(target_folder, source_folder):
+    import os
+    #os.system(f'rm -rf {target_folder}')
+    if not os.path.exists(target_folder):
+        print('Copy mean model from', source_folder, 'to', target_folder)
+        os.system(f'mkdir -p {target_folder}/model')
+        os.system(f'cp {source_folder}/model/net.pt {target_folder}/model/net_mean.pt')
+        os.system(f'cp {source_folder}/model/*scale* {target_folder}/model/')
+
+for model, folder in zip(['OLSModel', 'CVAERegression', 'MeanVarModel'], ['OLSModel', 'CVAERegression-None', 'MeanVarModel']):
+    for resolution in [48, 64, 96]:
+        for operator in ['Operator1', 'Operator2']:
             print(resolution, operator, folder)
             input()
             for realization in range(0,NUM_REALIZATIONS):
@@ -30,12 +39,16 @@ for resolution in [48, 64, 96]:
                 model_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + folder+'-'+str(realization)
                 script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/train_model.py'
 
+                if folder == 'MeanVarModel':
+                    copy_mean_model(model_folder, 
+                        '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models_retrain/' + _operator + '/' + 'OLSModel-'+str(realization))
+
                 if fail_function(model_folder):                
                     # basic parameters
                     fit_args = {}
                     model_args = {}
                     
-                    if folder == 'OLSModel':
+                    if folder == 'OLSModel' or 'MeanVarModel':
                         hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution]
                     elif folder == 'CVAERegression-None':
                         model_args = dict(regression='None')
@@ -46,4 +59,4 @@ for resolution in [48, 64, 96]:
                     hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \
                         'job-name': job_name(model, operator, resolution), 'output': 'training.txt', 'error': 'training.err'})
                     args = dict(model=model, train_path=train_path, transfer_path=transfer_path, model_args=model_args, fit_args=fit_args)
-                    run_experiment(model_folder, script_py, hpc, args, delete=True)
+                    run_experiment(model_folder, script_py, hpc, args, delete=False)
