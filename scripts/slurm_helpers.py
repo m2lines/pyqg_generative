@@ -58,7 +58,9 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
             + '/scratch/work/public/singularity/cuda11.2.2-cudnn8-devel-ubuntu20.04.sif ' \
             + '/bin/bash -c "source /ext3/env.sh; time '
     else:
+        lines.append('mkdir -p $SLURM_TMPDIR/miopen')
         singularity = 'singularity exec --rocm ' \
+            + '--bind  $SLURM_TMPDIR/miopen:$HOME/.config/miopen/ ' \
             + '--overlay /scratch/pp2681/python-container/overlay-25GB-500K.ext3:ro ' \
             + '/scratch/work/public/singularity/rocm5.1.1-ubuntu20.04.4.sif ' \
             + '/bin/bash -c "source /ext3/env.sh; time '
