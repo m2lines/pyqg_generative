@@ -9,3 +9,4 @@ pyqg_generative.egg-info*
 notebooks/model/*
 notebooks/difference
 notebooks/plot.pdf
+notebooks/difference_recompute*
