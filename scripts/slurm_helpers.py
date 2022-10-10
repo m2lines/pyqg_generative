@@ -15,6 +15,7 @@ DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
     'hours': 48, 'minutes': 0, 'job-name': 'pyqg_generative', 'launcher': 'launcher.sh', 
     'gres': 'gpu', 'partition': 'NONE', 'array': 'NONE',
+    'sbatch_args': '',
     'output': 'out.slurm', 'error': 'err.slurm', 'mail': 'NONE'})
 
 def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
@@ -100,4 +101,4 @@ def run_experiment(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS, delete
     os.system('mkdir -p '+ folder)
 
     create_slurm(folder, script_py, hpc, args)
-    os.system('cd '+folder+f'; sbatch {hpc["launcher"]}')
+    os.system('cd '+folder+f'; sbatch {hpc["sbatch_args"]} {hpc["launcher"]}')

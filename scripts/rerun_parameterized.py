@@ -20,15 +20,15 @@ def job_name(model, operator, resolution):
 
 N_ENS = 10 # number of ensemble members
 
-NUM_REALIZATIONS = 5
+#CONFIGURATION = 'eddy';
+#MODELS_FOLDER = 'models_retrain'
+#NUM_REALIZATIONS = 5
 
-CONFIGURATION = 'eddy';
-MODELS_FOLDER = 'models_retrain'
+CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
+MODELS_FOLDER = 'models_jet'
+NUM_REALIZATIONS = 3
 
-#CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
-#MODELS_FOLDER = 'models_jet'
-
-for resolution in [48, 64, 96]:
+for resolution in [96]:
     for operator in ['Operator1', 'Operator2']:
         print(operator, resolution, CONFIGURATION)
         input()
@@ -37,7 +37,7 @@ for resolution in [48, 64, 96]:
             for realization in range(0,NUM_REALIZATIONS):
                 model_folder = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{MODELS_FOLDER}/' + _operator + '/' + folder+'-'+str(realization)
                 script_py ='/home/pp2681/pyqg_generative/pyqg_generative/tools/simulate.py'
-                for basic_params, name in zip([EDDY_PARAMS], ['eddy']):
+                for basic_params, name in zip([JET_PARAMS], ['jet']):
                     pyqg_params = basic_params.nx(resolution)._update({'tmax': 20*YEAR})
                     
                     # Only white noise samplings
@@ -52,7 +52,8 @@ for resolution in [48, 64, 96]:
                         'gres': 'NONE', 'partition': 'cs',
                         'output': f'{subfolder}/%a.out', 
                         'error':  f'{subfolder}/%a.err',
-                        'array': f'0-{str(N_ENS-1)}'})
+                        'array': f'0-{str(N_ENS-1)}',
+                        'sbatch_args': '--dependency=afterok:25768057,25768058,25768059,25768060,25768061,25768062'})
 
                     args = {'parameterization': 'yes', 'ensemble_member': '$SLURM_ARRAY_TASK_ID', 'pyqg_params': pyqg_params, 
                         'subfolder': subfolder, 'sampling': sampling, 'nsteps': nsteps, 'model_weight': model_weight}
