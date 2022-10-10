@@ -178,7 +178,7 @@ if __name__ ==  '__main__':
 
     if args.parameterization == "yes":
         with open('model/model_args.json') as file:
-                model_args = json.load(file)
+            model_args = json.load(file)
 
         model = args.model_weight * eval(model_args.pop('model'))(**model_args)
         parameterization = \

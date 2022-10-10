@@ -14,7 +14,7 @@ class CustomDict(dict):
 DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
     'hours': 48, 'minutes': 0, 'job-name': 'pyqg_generative', 'launcher': 'launcher.sh', 
-    'gres': 'gpu', 'partition': 'NONE',
+    'gres': 'gpu', 'partition': 'NONE', 'array': 'NONE',
     'output': 'out.slurm', 'error': 'err.slurm', 'mail': 'NONE'})
 
 def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
@@ -38,6 +38,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
         '#SBATCH --partition='+hpc['partition'] if hpc['partition'] != 'NONE' else '',
+        '#SBATCH --array='+hpc['array'] if hpc['array'] != 'NONE' else '',
         '#SBATCH --output='+hpc['output'],
         '#SBATCH --error='+hpc['error'],
         '#SBATCH --mail-user=pp2681@nyu.edu',
@@ -70,7 +71,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         if isinstance(s, dict):
             s = str(s)
 
-        if isinstance(s, str):
+        if isinstance(s, str) and '$' not in s: # $ is for slurm variables
             return "\\\"" + s + "\\\""
         else:
             return str(s)
