@@ -14,7 +14,7 @@ class CustomDict(dict):
 DEFAULT_ARGS = CustomDict({})
 DEFAULT_HPC = CustomDict({'nodes': 1, 'ntasks': 14, 'cpus': 1, 'mem': 64, 
     'hours': 48, 'minutes': 0, 'job-name': 'pyqg_generative', 'launcher': 'launcher.sh', 
-    'gres': 'gpu', 'partition': 'NONE', 'array': 'NONE',
+    'gres': 'gpu', 'partition': 'NONE', 'array': 'NONE', 'begin': 'now',
     'sbatch_args': '',
     'output': 'out.slurm', 'error': 'err.slurm', 'mail': 'NONE'})
 
@@ -35,6 +35,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --ntasks-per-node='+hpc['ntasks'],
         '#SBATCH --cpus-per-task='+hpc['cpus'],
         '#SBATCH --mem='+hpc['mem']+'GB',
+        '#SBATCH --begin='+hpc['begin'],
        f'#SBATCH --time={hpc["hours"]}:{hpc["minutes"]}:00',
         '#SBATCH --job-name='+hpc['job-name'],
         '#SBATCH --gres='+hpc['gres'] if hpc['gres'] != 'NONE' else '',
