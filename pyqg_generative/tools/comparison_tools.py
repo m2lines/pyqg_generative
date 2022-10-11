@@ -474,7 +474,7 @@ def ensemble_dataset_read(model_path, target_path):
 
 def plot_panel_figure(operator='Operator1', resolution=48,
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
-    configuration = 'eddy', density='PDF_Ens1',
+    configuration = 'eddy', density='PDF_Ens1', common_folder='models',
     models_weights = [],
     samplings = [], lss = [], lws = [], colors = [],
     markers = [], markersizes = [], markerfillstyles = [],
@@ -542,7 +542,7 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
     target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
     lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
-    lores_3600_line = {'color': 'tab:purple', 'ls': '--', 'lw': 2, 'label': 'lores, $1h$'}
+    lores_3600_line = {'color': 'tab:purple', 'ls': '-', 'lw': 2, 'label': '$96^2$'}
 
     lines = []
     for j in range(nmodels):
@@ -554,12 +554,12 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc', read_cache=read_cache)
     target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
     lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
-    lores_3600 = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_3600_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    lores_3600 = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_96/[0-9].nc', read_cache=read_cache)
     
     models = []
     for folder, sampling in zip(models_folders, samplings):
         try:
-            ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
+            ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{common_folder}/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
         except:
             ds = None
         models.append(ds) 
@@ -600,7 +600,10 @@ def plot_panel_figure(operator='Operator1', resolution=48,
             pass
     ax.set_xscale('log')
     ax.set_xlim(xlim)
-    ax.set_ylim([-1.2e-6, 1.2e-6])
+    if configuration == 'eddy':
+        ax.set_ylim([-1.2e-6, 1.2e-6])
+    else:
+        ax.set_ylim([-0.4e-6, 0.4e-6])
     ax.set_title('Energy transfer \n (resolved+subgrid)')
     ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
     
@@ -625,7 +628,10 @@ def plot_panel_figure(operator='Operator1', resolution=48,
             pass
     ax.set_xscale('log')
     ax.set_xlim(xlim)
-    ax.set_ylim([-2e-7, 2.5e-6])
+    if configuration == 'eddy':
+        ax.set_ylim([-2e-7, 2.5e-6])
+    else:
+        ax.set_ylim([-2e-7, 0.6e-6])
     ax.set_title('Energy source')
     ax.set_ylabel('Energy change [$m^3/s^3$]', fontsize=11)
     
@@ -638,10 +644,13 @@ def plot_panel_figure(operator='Operator1', resolution=48,
             pass
     ax.set_title('KE per unit mass')
     ax.set_ylabel('Kinetic energy [$10^{-4} m^2/s^2$]', fontsize=11)
-    ax.set_ylim([0, 8e-4])
-    ax.set_yticks([0, 2e-4, 4e-4, 6e-4, 8e-4])
-    ax.set_yticklabels([0,2,4,6,8])
-    
+    if configuration == 'eddy':
+        ax.set_ylim([0, 8e-4])
+        ax.set_yticks([0, 2e-4, 4e-4, 6e-4, 8e-4])
+        ax.set_yticklabels([0,2,4,6,8])
+    else:
+        ax.set_ylim([0, 3e-4])
+        
     
     ax = axs[1][2]
     for model, line in zip([hires, target, lores, lores_3600, *models], 
@@ -670,7 +679,7 @@ def plot_panel_figure(operator='Operator1', resolution=48,
 
 def plot_PDFs(operator='Operator1', resolution=48,
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
-    configuration = 'eddy',
+    configuration = 'eddy', common_folder = 'models',
     models_weights = [],
     samplings = [], lss = [], lws = [], colors = [],
     markers = [], markersizes = [], markerfillstyles = [],
@@ -755,7 +764,7 @@ def plot_PDFs(operator='Operator1', resolution=48,
     models = []
     for folder, sampling in zip(models_folders, samplings):
         try:
-            ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
+            ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{common_folder}/{operator}-{str(resolution)}/{folder}/{sampling}/[0-9].nc', read_cache=read_cache)
         except:
             ds = None
         models.append(ds) 

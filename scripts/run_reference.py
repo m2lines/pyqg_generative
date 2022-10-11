@@ -7,7 +7,7 @@ from slurm_helpers import run_experiment, DEFAULT_HPC
 
 folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/eddy'
 for nc in [48, 64]:
-    for dt in [60, 600]:
+    for dt in [7200, 28800]:
         print(nc, dt)
         input()
         subfolder = f'reference_{str(dt)}_{str(nc)}'
