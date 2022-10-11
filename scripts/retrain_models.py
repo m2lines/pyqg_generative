@@ -9,8 +9,12 @@ def job_name(model, operator, resolution):
 #MODELS_FOLDER = 'models_retrain'
 #NUM_REALIZATIONS = 5
 
-CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
-MODELS_FOLDER = 'models_jet'
+#CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
+#MODELS_FOLDER = 'models_jet'
+#NUM_REALIZATIONS = 3
+
+CONFIGURATION = 'jet_40years'; TRANSFER = 'eddy'
+MODELS_FOLDER = 'models_jet_40years'
 NUM_REALIZATIONS = 3
 
 def fail_function(model_folder):
@@ -26,14 +30,14 @@ def fail_function(model_folder):
 
 def copy_mean_model(target_folder, source_folder):
     import os
-    #os.system(f'rm -rf {target_folder}')
+    os.system(f'rm -rf {target_folder}')
     if not os.path.exists(target_folder):
         print('Copy mean model from', source_folder, 'to', target_folder)
         os.system(f'mkdir -p {target_folder}/model')
         os.system(f'cp {source_folder}/model/net.pt {target_folder}/model/net_mean.pt')
         os.system(f'cp {source_folder}/model/*scale* {target_folder}/model/')
 
-for model, folder in zip(['OLSModel', 'CVAERegression'], ['OLSModel', 'CVAERegression-None']):
+for model, folder in zip(['MeanVarModel', 'CGANRegression'], ['MeanVarModel', 'CGANRegression']):
     for resolution in [48, 64, 96]:
         for operator in ['Operator1', 'Operator2']:
             print(resolution, operator, folder, CONFIGURATION)
@@ -67,6 +71,7 @@ for model, folder in zip(['OLSModel', 'CVAERegression'], ['OLSModel', 'CVAERegre
                     hpc = DEFAULT_HPC._update(
                         {'ntasks': 1, 'mem': mem, 'gres': 'gpu:mi50:1', 'hours': hours, \
                         'job-name': CONFIGURATION[0]+job_name(model, operator, resolution), 
-                        'output': 'training.txt', 'error': 'training.err'})
+                        'output': 'training.txt', 'error': 'training.err', 
+                        'begin': 'now'})
                     args = dict(model=model, train_path=train_path, transfer_path=transfer_path, model_args=model_args, fit_args=fit_args)
                     run_experiment(model_folder, script_py, hpc, args, delete=False)
