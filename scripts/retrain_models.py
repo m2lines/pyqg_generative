@@ -5,13 +5,13 @@ def job_name(model, operator, resolution):
       dict(OLSModel='ls', CGANRegression='gan', CVAERegression='vae', MeanVarModel='gz')[model] + \
       str(resolution)
 
-NUM_REALIZATIONS = 3
-
 #CONFIGURATION = 'eddy'; TRANSFER = 'jet'
 #MODELS_FOLDER = 'models_retrain'
+#NUM_REALIZATIONS = 5
 
 CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
 MODELS_FOLDER = 'models_jet'
+NUM_REALIZATIONS = 3
 
 def fail_function(model_folder):
     import os
