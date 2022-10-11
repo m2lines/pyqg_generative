@@ -86,6 +86,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
         '''
         return op.__name__ + '-' + str(nc)
 
+    pyqg_params['tmax'] = float(pyqg_params['tmax'])
     m = pyqg.QGModel(**pyqg_params)
 
     out = {}
@@ -120,6 +121,7 @@ def run_simulation(pyqg_params, parameterization=None, q_init=None,
     parameterization['nsteps'] = 1
     q_init - initial conditiona for PV, numpy array nlev*ny*nx
     '''
+    pyqg_params['tmax'] = float(pyqg_params['tmax'])
     if parameterization is None:
         m = pyqg.QGModel(**pyqg_params)
     else:
@@ -173,7 +175,7 @@ if __name__ ==  '__main__':
     
     if args.reference == "yes":
         print(args.pyqg_params)
-        run_simulation(eval(args.pyqg_params)).to_netcdf(
+        run_simulation(eval(args.pyqg_params), sampling_freq=args.sampling_freq).to_netcdf(
             os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
         )
 
@@ -186,7 +188,7 @@ if __name__ ==  '__main__':
             dict(self=model, sampling=args.sampling, nsteps=args.nsteps)
         
         os.system('mkdir -p '+args.subfolder)
-        run_simulation(eval(args.pyqg_params), parameterization).to_netcdf(
+        run_simulation(eval(args.pyqg_params), parameterization, sampling_freq=args.sampling_freq).to_netcdf(
             os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
         )
 
