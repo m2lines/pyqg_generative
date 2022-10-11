@@ -151,6 +151,7 @@ if __name__ ==  '__main__':
     parser.add_argument('--pyqg_params', type=str, default=str({}))
     parser.add_argument('--ensemble_member', type=int, default=0)
     parser.add_argument('--forcing', type=str, default="no")
+    parser.add_argument('--sampling_freq', type=int, default=ANDREW_1000_STEPS)
     parser.add_argument('--reference', type=str, default="no")
     parser.add_argument('--parameterization', type=str, default="no")
     parser.add_argument('--forecast', type=str, default="no")
@@ -165,7 +166,7 @@ if __name__ ==  '__main__':
     if args.forcing == "yes":
         Nc = [32, 48, 64, 96]
 
-        datasets = generate_subgrid_forcing(Nc, eval(args.pyqg_params))
+        datasets = generate_subgrid_forcing(Nc, eval(args.pyqg_params), args.sampling_freq)
         for key in datasets.keys():
             os.system('mkdir -p '+ key)
             datasets[key].to_netcdf(os.path.join(key, f'{args.ensemble_member}.nc'))
