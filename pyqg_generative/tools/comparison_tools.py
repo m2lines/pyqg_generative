@@ -475,6 +475,7 @@ def ensemble_dataset_read(model_path, target_path):
 def plot_panel_figure(operator='Operator1', resolution=48,
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
     configuration = 'eddy', density='PDF_Ens1', common_folder='models',
+    ref_folder = None,
     models_weights = [],
     samplings = [], lss = [], lws = [], colors = [],
     markers = [], markersizes = [], markerfillstyles = [],
@@ -499,6 +500,9 @@ def plot_panel_figure(operator='Operator1', resolution=48,
         ylim2=[1e-4,1e+1]
 
     delta = 0.25 if configuration=='eddy' else 0.1
+
+    if ref_folder is None:
+        ref_folder = configuration
 
     def ave_lev(arr):
         return op.ave_lev(arr, delta)
@@ -542,7 +546,7 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
     target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
     lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
-    lores_3600_line = {'color': 'tab:purple', 'ls': '-', 'lw': 2, 'label': '$96^2$'}
+    lores_3600_line = {'color': 'tab:purple', 'ls': '-', 'lw': 2, 'label': '$128^2$'}
 
     lines = []
     for j in range(nmodels):
@@ -551,10 +555,10 @@ def plot_panel_figure(operator='Operator1', resolution=48,
             'fillstyle': markerfillstyles[j], 'markeredgewidth': markeredgewidths[j],
             'label': labels[j], 'alpha': alphas[j]})
     
-    hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc', read_cache=read_cache)
-    target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
-    lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
-    lores_3600 = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_96/[0-9].nc', read_cache=read_cache)
+    hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_256/[0-9].nc', read_cache=read_cache)
+    target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_256/{operator}-{str(resolution)}.nc', read_cache=read_cache)
+    lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_{str(resolution)}/[0-9].nc', read_cache=read_cache)
+    lores_3600 = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_96/[0-9].nc', read_cache=read_cache)
     
     models = []
     for folder, sampling in zip(models_folders, samplings):
@@ -799,13 +803,16 @@ def plot_PDFs(operator='Operator1', resolution=48,
 
 def plot_solution(operator='Operator1', resolution=48, 
     models_folders = ['OLSModel', 'MeanVarModel', 'CGANRegression'],
-    configuration = 'eddy', samplings=None, labels=None,
+    configuration = 'eddy', 
+    common_folder='models',
+    ref_folder = None,
+    samplings=None, labels=None,
     cbar_label='Kinetic \n energy [$m^2/s^2$]', fun = lambda ds: 0.5 * (ds.u**2 + ds.v**2)):
 
     import matplotlib.pyplot as plt
     plt.rcParams.update({'font.size': 12})
     fig, axs = plt.subplots(2,3+len(models_folders), figsize=(12,4))
-    plt.subplots_adjust(wspace=0.0, hspace=0.1)
+    plt.subplots_adjust(wspace=0.1, hspace=0.1)
 
     delta = 0.25 if configuration=='eddy' else 0.1
     def dataset_read(path):
@@ -816,19 +823,22 @@ def plot_solution(operator='Operator1', resolution=48,
     
     if labels is None:
         labels = models_folders
+    
+    if ref_folder is None:
+        ref_folder = configuration
 
     idx = dict(time=-1, run=0)
 
     for lev in [0,1]:
         row = lev
-        hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/[0-9].nc').isel(idx).isel(lev=lev)
-        target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_256/{operator}-{str(resolution)}.nc').isel(idx).isel(lev=lev)
-        lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{configuration}/reference_{str(resolution)}/[0-9].nc').isel(idx).isel(lev=lev)
+        hires = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_256/[0-9].nc').isel(idx).isel(lev=lev)
+        target = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_256/{operator}-{str(resolution)}.nc').isel(idx).isel(lev=lev)
+        lores = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{ref_folder}/reference_{str(resolution)}/[0-9].nc').isel(idx).isel(lev=lev)
         
         models = []
         for folder, sampling in zip(models_folders, samplings):
             try:
-                ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/models/{operator}-{str(resolution)}/{folder}/{configuration}-{sampling}/[0-9].nc').isel(idx).isel(lev=lev)
+                ds = dataset_read(f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{common_folder}/{operator}-{str(resolution)}/{folder}/{configuration}-{sampling}/[0-9].nc').isel(idx).isel(lev=lev)
             except:
                 ds = None
             models.append(ds) 
