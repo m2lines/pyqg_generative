@@ -49,8 +49,6 @@ NUM_REALIZATIONS = 1
 #SAMPLING_FREQ = ANDREW_1000_STEPS
 #NUM_REALIZATIONS = 1
 
-
-
 for resolution in [48, 64, 96]:
     for operator in ['Operator1']:
         print(operator, resolution, MODELS_FOLDER)

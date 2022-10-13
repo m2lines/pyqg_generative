@@ -10,25 +10,31 @@ from slurm_helpers import run_experiment, DEFAULT_HPC
 #MODELS_FOLDER = 'models_jet'
 #NUM_REALIZATIONS = 3
 
-# CONFIGURATION = 'eddy'
-# REFERENCE_FOLDER = 'eddy'
-# MODELS_FOLDER = 'models_retrain'
-# NUM_REALIZATIONS = 5
+CONFIGURATION = 'eddy'
+REFERENCE_FOLDER = 'eddy'
+MODELS_FOLDER = 'models_retrain'
+NUM_REALIZATIONS = 1
 
+#CONFIGURATION = 'jet'
+#REFERENCE_FOLDER = 'jet_40years'
+#MODELS_FOLDER = 'models_jet_40years'
+#NUM_REALIZATIONS = 1
 
-CONFIGURATION = 'jet'
-REFERENCE_FOLDER = 'jet_40years'
-MODELS_FOLDER = 'models_jet_40years'
-NUM_REALIZATIONS = 3
+PHYSICAL_PARAMETERIZATIONS=True
 
 nfile = 0
 for res in [48, 64, 96]:
     for operator in ['Operator1', 'Operator2']:
-        for model in ['OLSModel', 'CGANRegression', 'MeanVarModel', 'CVAERegression-None']:
+        #for model in ['OLSModel', 'CGANRegression', 'MeanVarModel', 'CVAERegression-None']:
+        for model in ['ZannaBolton', 'ReynoldsStress', 'HybridSymbolic', 'ADM', 'BackscatterEddy', 'BackscatterJet']:
             for realization in range(NUM_REALIZATIONS):
                 _operator = operator+'-'+str(res)
                 base = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{MODELS_FOLDER}/'
-                model_folder = base + '/' + _operator + '/' + model + '-' + str(realization)
+                if PHYSICAL_PARAMETERIZATIONS:
+                    model_folder = base + '/' + 'Operator1'+'-'+str(res) + '/' + model + '-' + str(realization)
+                else:
+                    model_folder = base + '/' + _operator + '/' + model + '-' + str(realization)
+
                 for timestep in ['']:
                     nfile += 1
                     subfolder = f'{CONFIGURATION}{timestep}-constant-0'

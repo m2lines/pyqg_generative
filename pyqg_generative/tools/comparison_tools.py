@@ -546,7 +546,7 @@ def plot_panel_figure(operator='Operator1', resolution=48,
     dns_line = {'color': 'k', 'ls': '-', 'lw': 1, 'label': 'DNS'}
     target_line = {'color': 'k', 'ls': '--', 'lw': 2, 'label': 'fDNS'}
     lores_line = {'color': 'gray', 'ls': '-', 'lw': 2, 'label': 'lores'}
-    lores_3600_line = {'color': 'tab:purple', 'ls': '-', 'lw': 2, 'label': '$128^2$'}
+    lores_3600_line = {'color': 'tab:purple', 'ls': '-', 'lw': 2, 'label': '$96^2$'}
 
     lines = []
     for j in range(nmodels):
@@ -811,7 +811,7 @@ def plot_solution(operator='Operator1', resolution=48,
 
     import matplotlib.pyplot as plt
     plt.rcParams.update({'font.size': 12})
-    fig, axs = plt.subplots(2,3+len(models_folders), figsize=(12,4))
+    fig, axs = plt.subplots(2,3+len(models_folders), figsize=(16,4))
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
 
     delta = 0.25 if configuration=='eddy' else 0.1
