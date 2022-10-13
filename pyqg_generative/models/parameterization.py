@@ -124,20 +124,26 @@ class Parameterization(pyqg.QParameterization):
             arr = preds[target].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
             xmin = float(mean - 4*std); xmax = float(mean + 4*std)
+            coords = None
             for suffix in ['', '_gen', '_mean']:
                 array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
-                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
+                if coords is None:
+                    coords=[coord(points, '$dq/dt, s^{-2}$')]
+                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords,
                     attrs={'long_name': 'subgrid forcing PDF'})
 
         for lev in [0,1]:
             arr = preds[target+'_res'].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
             xmin = float(mean - 4*std); xmax = float(mean + 4*std)
+            coords = None
             for suffix in ['_res', '_gen_res']:
                 array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
-                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=[coord(points, '$dq/dt, s^{-2}$')],
+                if coords is None:
+                    coords=[coord(points, '$dq/dt, s^{-2}$')]
+                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords,
                     attrs={'long_name': 'subgrid forcing residual PDF'})
 
         # Fix issue with coordinates
