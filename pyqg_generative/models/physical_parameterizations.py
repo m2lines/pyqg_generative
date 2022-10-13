@@ -5,7 +5,9 @@ from pyqg_generative.models.parameterization import Parameterization
 import pyqg.parameterizations as p
 
 class PhysicalParameterization(Parameterization):
-    def predict_snapshot(self, m):
+    def generate_latent_noise(self, ny, nx):
+        return 0
+    def predict_snapshot(self, m, noise):
         return self.subgrid_model(m)
     def predict(self, ds, M=1000):
         X = np.array(ds.q)

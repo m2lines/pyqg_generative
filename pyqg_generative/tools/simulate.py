@@ -12,6 +12,7 @@ from pyqg_generative.models.mean_var_model import MeanVarModel
 from pyqg_generative.models.cgan_regression import CGANRegression
 from pyqg_generative.models.cgan_regressionxy import CGANRegressionxy
 from pyqg_generative.models.cvae_regression import CVAERegression
+from pyqg_generative.models.physical_parameterizations import *
 
 @timer
 def concat_in_time(datasets):
@@ -179,11 +180,14 @@ if __name__ ==  '__main__':
             os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
         )
 
-    if args.parameterization == "yes":
-        with open('model/model_args.json') as file:
-            model_args = json.load(file)
-
-        model = args.model_weight * eval(model_args.pop('model'))(**model_args)
+    if args.parameterization != "no":
+        if args.parameterization == "yes":
+            with open('model/model_args.json') as file:
+                model_args = json.load(file)
+            model = args.model_weight * eval(model_args.pop('model'))(**model_args)
+        else:
+            model = args.model_weight * eval(args.parameterization)()
+            
         parameterization = \
             dict(self=model, sampling=args.sampling, nsteps=args.nsteps)
         
