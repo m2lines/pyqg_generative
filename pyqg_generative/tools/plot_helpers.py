@@ -57,9 +57,19 @@ def show_rcparams(name):
             print(key, val)
 
 def default_rcParams(kw={}):
+    '''
+    Also matplotlib.rcParamsDefault contains the default values,
+    but:
+    - backend is changed
+    - without plotting something as initialization,
+    inline does not work
+    '''
+    plt.plot()
+    plt.close()
     rcParams = matplotlib.rcParamsDefault.copy()
     rcParams.pop('backend') # can break inlining
     matplotlib.rcParams.update(rcParams)
+    
     matplotlib.rcParams.update({
         'font.family': 'MathJax_Main',
         'mathtext.fontset': 'cm',
