@@ -288,10 +288,10 @@ def train_CVAE(net, ds_train, ds_test,
         #torch.save(net.decoder.state_dict(),f'model/decoder_{epoch+1}.pt')
         
         t = time()
-        print('[%d/%d] [%.2f/%.2f] Loss: [%.3f] Var: [%.3f,%.3f] L2_mean: [%.3f,%.3f] L2_total: [%.3f,%.3f] L2_res: [%.3f,%.3f] Var_ratio: [%.3f, %.3f]' 
+        print('[%d/%d] [%.2f/%.2f] MSE/KL: [%.3f, %.3f] Var: [%.3f,%.3f] L2_mean: [%.3f,%.3f] L2_total: [%.3f,%.3f] L2_res: [%.3f,%.3f] Var_ratio: [%.3f, %.3f]' 
             % (epoch+1, num_epochs,
              t-t_e, (t-t_s)*(num_epochs/(epoch+1)-1),
-             optim_loss['loss'][-1],
+             optim_loss['MSE'][-1], optim_loss['loss_KL'][-1],
              optim_loss['var_latent'][-1], optim_loss['var_aggr'][-1],
              log_train[-1]['L2_mean'], log_test[-1]['L2_mean'],
              log_train[-1]['L2_total'], log_test[-1]['L2_total'],
