@@ -193,6 +193,81 @@ def DCGAN_discriminator(in_channels, ndf=64, nx=64, bn='BatchNorm'):
         )
     return model
 
+class downsampling(nn.Module):
+    def __init__(self, n_down, n_in, n_out, nx=64, hidden_dims=[32, 64, 128, 256, 512, 1024], flatten=True):
+        '''
+        https://github.com/AntixK/PyTorch-VAE/blob/master/models/vanilla_vae.py
+        Each downsampling reduces resolution twice
+        n_down - number of such downsampligns
+        n_in - number of input channels
+        n_out - number of output channels
+        nx - resolution of the image
+        hidden_dims - number of filters in hidden layers;
+        we consider this array only up to n_down
+        flatten - if True, last layer is Fully Connected ANN
+        '''
+        super().__init__()
+        modules = []
+        for i in range(n_down):
+            nin = n_in if i == 0 else hidden_dims[i-1]
+            nout = n_out if i == n_down-1 and not flatten else hidden_dims[i]
+            modules.append(
+                nn.Sequential(
+                nn.Conv2d(nin, out_channels=nout,
+                    kernel_size=3, stride=2, padding=1, padding_mode='circular'),
+                nn.BatchNorm2d(nout),
+                nn.LeakyReLU())
+            )
+        self.net = nn.Sequential(*modules)
+        if flatten:
+            self.ANN = nn.Linear(hidden_dims[n_down-1] * int(nx/2**n_down)**2, n_out)
+    
+    def forward(self, x):
+        if hasattr(self, 'ANN'):
+            return self.ANN(self.net(x).view(x.size(0), -1))
+        else:
+            return self.net(x)
+
+class upsampling(nn.Module):
+    def __init__(self, n_up, n_in, n_out, nx=64, hidden_dims=[32, 64, 128, 256, 512, 1024], flatten=True):
+        '''
+        Each upsampling increases resolution twice
+        n_up - number of such upsamplings
+        n_in - number of input channels
+        n_out - number of output channels
+        nx - resolution of the image after upsamplings
+        hidden_dims - number of filters in hidden layers in reverse order
+        flatten - if True, the first layer is Fully Connected ANN
+        '''
+        super().__init__()
+        modules = []
+
+        _hidden_dims = hidden_dims[:n_up] # Take only needed elements
+        _hidden_dims = _hidden_dims[::-1] # reverse order
+
+        if flatten:
+            self.nx_coarse = int(nx/2**n_up)
+            self.ANN = nn.Linear(n_in, _hidden_dims[0] * self.nx_coarse**2)
+
+        for i in range(n_up):
+            nin = n_in if i == 0 and not flatten else _hidden_dims[i]
+            nout = n_out if i == n_up-1 else _hidden_dims[i+1]
+            modules.append(
+                nn.Sequential(
+                nn.ConvTranspose2d(nin, nout,
+                    kernel_size=3, stride=2, padding=1, output_padding=1,
+                    padding_mode='zeros'),
+                nn.BatchNorm2d(nout),
+                nn.LeakyReLU())
+            )
+        self.net = nn.Sequential(*modules)
+
+    def forward(self, x):
+        if hasattr(self, 'ANN'):
+            return self.net(self.ANN(x).view(x.size(0), -1, self.nx_coarse, self.nx_coarse))
+        else:
+            return self.net(x)
+
 def extract(ds, key):
     var = ds[key].values
     return var.reshape(-1,*var.shape[2:])

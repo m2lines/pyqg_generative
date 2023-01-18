@@ -20,13 +20,14 @@ NUM_REALIZATIONS = 1
 #MODELS_FOLDER = 'models_jet_40years'
 #NUM_REALIZATIONS = 1
 
-PHYSICAL_PARAMETERIZATIONS=True
+PHYSICAL_PARAMETERIZATIONS=False
 
 nfile = 0
-for res in [48, 64, 96]:
-    for operator in ['Operator1', 'Operator2']:
-        #for model in ['OLSModel', 'CGANRegression', 'MeanVarModel', 'CVAERegression-None']:
-        for model in ['ZannaBolton', 'ReynoldsStress', 'HybridSymbolic', 'ADM', 'BackscatterEddy', 'BackscatterJet']:
+for res in [48]:
+    for operator in ['Operator1']:
+        for model in ['CGANRegression-retrain', 'CVAERegression-None']:
+        #for model in ['CGANRegression-retrain']:
+        #for model in ['ZannaBolton', 'ReynoldsStress', 'HybridSymbolic', 'ADM', 'BackscatterEddy', 'BackscatterJet']:
             for realization in range(NUM_REALIZATIONS):
                 _operator = operator+'-'+str(res)
                 base = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{MODELS_FOLDER}/'
@@ -35,17 +36,22 @@ for res in [48, 64, 96]:
                 else:
                     model_folder = base + '/' + _operator + '/' + model + '-' + str(realization)
 
-                for timestep in ['']:
+                for timestep in ['-7200', '']:
+                #for decorrelation in ['0', '12', '24', '36', '48']:
                     nfile += 1
-                    subfolder = f'{CONFIGURATION}{timestep}-constant-0'
+                    #subfolder = f'{CONFIGURATION}-AR1-{decorrelation}'
+                    #subfolder = f'{CONFIGURATION}{timestep}-constant-0'
+                    subfolder = f'{CONFIGURATION}{timestep}-deterministic'
                     
                     model_path = model_folder + '/' + subfolder + '/[0-9].nc'
-                    key = _operator + '/' + model + '-' + str(realization) + '/' + f'{REFERENCE_FOLDER}{timestep}-constant-0'
+                    #key = _operator + '/' + model + '-' + str(realization) + '/' + f'{REFERENCE_FOLDER}{timestep}-constant-0'
+                    #key = _operator + '/' + model + '-' + str(realization) + '/' + f'{REFERENCE_FOLDER}-AR1-{decorrelation}'
+                    key = _operator + '/' + model + '-' + str(realization) + '/' + f'{REFERENCE_FOLDER}{timestep}-deterministic'
                     target_path = f'/scratch/pp2681/pyqg_generative/Reference-Default-scaled/{REFERENCE_FOLDER}/reference_256/'+_operator+'.nc'
                     save_file = key.replace('/','-')
 
                     script_py = '/home/pp2681/pyqg_generative/pyqg_generative/tools/comparison_tools.py'
-                    save_folder = '/home/pp2681/pyqg_generative/notebooks/difference_recompute'
+                    save_folder = '/scratch/pp2681/pyqg_generative/Reference-Default-scaled/difference_recompute'
                     
                     hpc = DEFAULT_HPC._update({'ntasks': 1, 'mem': 8, 
                             'hours': 0, 'minutes': 4,
