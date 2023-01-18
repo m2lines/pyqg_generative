@@ -5,17 +5,17 @@ def job_name(model, operator, resolution):
       dict(OLSModel='ls', CGANRegression='gan', CVAERegression='vae', MeanVarModel='gz')[model] + \
       str(resolution)
 
-#CONFIGURATION = 'eddy'; TRANSFER = 'jet'
-#MODELS_FOLDER = 'models_retrain'
-#NUM_REALIZATIONS = 5
+CONFIGURATION = 'eddy'; TRANSFER = 'jet'
+MODELS_FOLDER = 'models_retrain'
+NUM_REALIZATIONS = 5
 
 #CONFIGURATION = 'jet_300'; TRANSFER = 'eddy'
 #MODELS_FOLDER = 'models_jet'
 #NUM_REALIZATIONS = 3
 
-CONFIGURATION = 'jet_40years'; TRANSFER = 'eddy'
-MODELS_FOLDER = 'models_jet_40years'
-NUM_REALIZATIONS = 3
+# CONFIGURATION = 'jet_40years'; TRANSFER = 'eddy'
+# MODELS_FOLDER = 'models_jet_40years'
+# NUM_REALIZATIONS = 3
 
 def fail_function(model_folder):
     import os
@@ -37,7 +37,7 @@ def copy_mean_model(target_folder, source_folder):
         os.system(f'cp {source_folder}/model/net.pt {target_folder}/model/net_mean.pt')
         os.system(f'cp {source_folder}/model/*scale* {target_folder}/model/')
 
-for model, folder in zip(['MeanVarModel', 'CGANRegression'], ['MeanVarModel', 'CGANRegression']):
+for model, folder in zip(['CGANRegression'], ['CGANRegression-retrain']):
     for resolution in [48, 64, 96]:
         for operator in ['Operator1', 'Operator2']:
             print(resolution, operator, folder, CONFIGURATION)
@@ -57,14 +57,14 @@ for model, folder in zip(['MeanVarModel', 'CGANRegression'], ['MeanVarModel', 'C
                     # basic parameters
                     fit_args = {}
                     model_args = {}
-                    hours = {32:1, 48: 1, 64: 2, 96: 4}[resolution] 
+                    hours = {32:1, 48: 10, 64: 10, 96: 20}[resolution] 
                     
-                    if folder == 'CGANRegression':
-                        model_args = dict(nx=resolution)
-                    elif folder == 'CVAERegression-None':
+                    if folder == 'CGANRegression-retrain':
+                        model_args = dict(nx=resolution, regression='None')
+                        fit_args = dict(num_epochs=200)
+                    elif folder == 'CVAERegression-retrain':
                         model_args = dict(regression='None')
                         fit_args = dict(num_epochs=200)
-                        hours = 20 if resolution==96 else 10
                         
                     mem=32
                     

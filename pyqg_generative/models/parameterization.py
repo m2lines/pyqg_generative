@@ -15,6 +15,8 @@ class Parameterization(pyqg.QParameterization):
         raise NotImplementedError
     def predict_snapshot():
         raise NotImplementedError
+    def predict_mean_snapshot():
+        raise NotImplementedError
     def predict():
         raise NotImplementedError
 
@@ -22,9 +24,12 @@ class Parameterization(pyqg.QParameterization):
         latent_noise = lambda: self.generate_latent_noise(m.ny, m.nx)
         demean = lambda x: x - x.mean(axis=(1,2), keepdims=True)
 
-        if m.noise_sampler.update(latent_noise):
-            noise = m.noise_sampler.noise
-            m.PV_forcing = demean(self.predict_snapshot(m, noise))
+        if m.sampling_type == 'deterministic':
+            m.PV_forcing = demean(self.predict_mean_snapshot(m))
+        else:
+            if m.noise_sampler.update(latent_noise):
+                noise = m.noise_sampler.noise
+                m.PV_forcing = demean(self.predict_snapshot(m, noise))
         
         return m.PV_forcing
     

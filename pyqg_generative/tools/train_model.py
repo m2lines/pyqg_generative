@@ -4,6 +4,7 @@ import xarray as xr
 
 from pyqg_generative.models.cgan_regression import CGANRegression
 from pyqg_generative.models.cvae_regression import CVAERegression
+from pyqg_generative.models.cvae_bottleneck import CVAEBottleneck
 from pyqg_generative.models.mean_var_model import MeanVarModel
 from pyqg_generative.models.ols_model import OLSModel
 

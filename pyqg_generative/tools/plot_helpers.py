@@ -32,7 +32,7 @@ def default_rcParams(kw={}):
         'font.family': 'MathJax_Main',
         'mathtext.fontset': 'cm',
 
-        'figure.figsize': (10, 2),
+        'figure.figsize': (4, 4),
 
         'figure.subplot.wspace': 0.3,
         
@@ -53,10 +53,9 @@ def default_rcParams(kw={}):
     })
     matplotlib.rcParams.update(**kw)
 
-def set_letters(x=-0.2, y=1.05):
+def set_letters(x=-0.2, y=1.05, letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']):
     fig = plt.gcf()
     axes = fig.axes
-    letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']
     j = 0
     for ax in axes:
         subplot=False
@@ -89,7 +88,7 @@ def imshow(_q, cbar=True, location='right', cbar_label=None, ax=None, cmap=None,
             q_str = f'$\\mu_x={latex_float(q_norm)}$'
         else:
             q_norm = rms(_q)
-            q_str = '$x_{rms}='+f'{latex_float(q_norm)}$'    
+            q_str = f'${latex_float(q_norm)}$'    
         q = _q / q_norm
         if len(normalize_postfix) > 0:
             q_str += f' {normalize_postfix}'
@@ -136,3 +135,21 @@ def imshow(_q, cbar=True, location='right', cbar_label=None, ax=None, cmap=None,
     # Return axis to initial image
     plt.sca(ax)
     return im
+
+def outliers(_data):
+    '''
+    data - 2D xarray
+    First dimension is coordinate, send is trials dimension
+    Split along trial dimension into two groups:
+    - outliers
+    - inliers
+    For inliers compute mean, median, std, min, max
+    And return outliers pointwise
+    '''
+    from scipy.cluster.vq import kmeans
+    data = _data.copy()
+
+    data_reduce = data.mean(dim=-1)
+
+    data_outliers = np.nan * data.copy()
+    

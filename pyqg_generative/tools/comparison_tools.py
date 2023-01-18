@@ -299,8 +299,8 @@ def cache_path(path):
 def dataset_smart_read(path, delta=0.25, read_cache=True):
     print(path)
     nfiles = len(glob.glob(path))
-    if nfiles < 10:
-        print('Warning! Computations are unstable. Number of files is less than 10 and equal to', nfiles)
+    #if nfiles < 10:
+        #print('Warning! Computations are unstable. Number of files is less than 10 and equal to', nfiles)
     cache = cache_path(path)
     if os.path.exists(cache) and read_cache:
         #print('Read cache ' + cache)
@@ -311,12 +311,15 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
         ds2['time'] = ds1['time'] # make sure time is the same
         return xr.merge([ds1, ds2])
     if os.path.exists(cache) and not read_cache:
-        print('Delete cache ' + cache)
+        #print('Delete cache ' + cache)
         os.remove(cache)
 
-    ds = pse.Dataset(path)
+    ds = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False)
+    ds['time'] = ds['time'] / 360
+    ds['time'].attrs = {'long_name':'time [$years$]'}
+    ds = pse.Dataset(ds)
 
-    print('Compute statistics')
+    #print('Compute statistics')
     stats = xr.Dataset()
 
     def KE(ds):
@@ -327,6 +330,14 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     
     def KE_time(ds):
         return op.ave_lev(KE(ds), delta=delta).mean(('run', 'x', 'y'))
+    
+    def Vabs(ds):
+        return np.sqrt(2*KE(ds))
+
+    stats['omega'] = ds.relative_vorticity
+    stats['KE'] = KE(ds)
+    stats['Ens'] = Ens(ds)
+    stats['Vabs'] = Vabs(ds)
     
     def PDF_var(ds, var, lev):
         ds_ = ds.isel(time=AVERAGE_SLICE_ANDREW).isel(lev=lev)
@@ -339,7 +350,17 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
         values = values.values.ravel()
 
         xmin = 0 if var in ['KE', 'Ens'] else None
-        xmax = 1e-10 if var=='Ens' and lev==0 else None
+        if var=='Ens' and lev==0:
+            xmax = 1e-10
+        elif var=='Ens' and lev==1:
+            xmax = 1.5e-12
+        elif var=='KE' and lev==0:
+            xmax = 1.5e-2
+        elif var=='KE' and lev==1:
+            xmax = 5e-4
+        else:
+            xmax = None
+
         points, density = PDF_histogram(values, xmin=xmin, xmax=xmax)
         return xr.DataArray(density, dims=f'{var}_{lev}', coords=[points])
 

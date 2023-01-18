@@ -114,6 +114,8 @@ class CGANRegression(Parameterization):
                 torch.load(f'{folder}/G.pt', map_location='cpu'))
             self.D.load_state_dict(
                 torch.load(f'{folder}/D.pt', map_location='cpu'))
+            self.x_scale = ChannelwiseScaler().read('x_scale.json', folder)
+            self.y_scale = ChannelwiseScaler().read('y_scale.json', folder)
             return True
         else:
             False
@@ -145,6 +147,15 @@ class CGANRegression(Parameterization):
     def predict_snapshot(self, m, noise):
         X = self.x_scale.normalize(m.q.astype('float32'))
         Y = apply_function(self.G, X, noise, fun=self.generate)
+        if self.regression != 'None':
+            Y += apply_function(self.net_mean, X)
+        return self.y_scale.denormalize(Y).squeeze().astype('float64')
+    
+    def predict_mean_snapshot(self, m, M=100):
+        X = self.x_scale.normalize(m.q.astype('float32'))
+        XX = np.tile(X,(M,1,1,1))
+        Y = apply_function(self.G, XX, fun=self.generate)
+        Y = Y.mean(0, keepdims=True)
         if self.regression != 'None':
             Y += apply_function(self.net_mean, X)
         return self.y_scale.denormalize(Y).squeeze().astype('float64')

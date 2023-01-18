@@ -124,6 +124,15 @@ class CVAERegression(Parameterization):
             Y += apply_function(self.net_mean, X)
         return self.y_scale.denormalize(Y).squeeze().astype('float64')
     
+    def predict_mean_snapshot(self, m, M=100):
+        X = self.x_scale.normalize(m.q.astype('float32'))
+        XX = np.tile(X,(M,1,1,1))
+        Y = apply_function(self.decoder, XX, fun=self.generate)
+        Y = Y.mean(0, keepdims=True)
+        if self.regression != 'None':
+            Y += apply_function(self.net_mean, X)
+        return self.y_scale.denormalize(Y).squeeze().astype('float64')
+    
     def predict(self, ds, M=1000):
         X = self.x_scale.normalize(extract(ds, 'q'))
         Y, mean, var = apply_function(self.decoder, X, fun=self.generate_mean_var, M=M)

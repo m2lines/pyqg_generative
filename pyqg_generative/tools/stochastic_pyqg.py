@@ -77,9 +77,12 @@ class stochastic_QGModel(pyqg.QGModel):
     '''
     def __init__(self, pyqg_params, sampling_type='AR1', nsteps=1):
         super().__init__(**pyqg_params)
+        self.sampling_type = sampling_type
         if sampling_type == 'AR1':
             self.noise_sampler = AR1_sampler(nsteps)
         elif sampling_type == 'constant':
             self.noise_sampler = constant_sampler(nsteps)
+        elif sampling_type == 'deterministic':
+            pass
         else:
             raise ValueError('Unknown sampling type')
