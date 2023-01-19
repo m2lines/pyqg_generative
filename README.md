@@ -1,4 +1,8 @@
-# pyqg_generative
+# JAMES publication
+This repository was used to obtain all results of the paper Pavel Perezhogin, Laure Zanna, Carlos Fernandez-Granda "Data-driven stochastic parameterizations of subgrid mesoscale eddies in an idealized ocean model" submitted to JAMES. 
+## Figures
+See `notebooks/paper_figures_1.ipynb` and folder `notebooks/paper_figures_1/`.
+# Package description
 Repository with generative models (GZ2021, cGAN, cVAE) predicting subgrid forcing from pyqg data in probabilistic way.
 
 # Installation
