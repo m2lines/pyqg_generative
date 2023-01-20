@@ -18,6 +18,9 @@ python run_reference.py
 python run_forcing_datasets.py
 python train_parameterizations.py
 python run_parameterized.py
+```
+Coarsegrain reference simulations with [def coarsegrain_reference_dataset](https://github.com/m2lines/pyqg_generative/blob/master/pyqg_generative/tools/comparison_tools.py#L53)
+```
 python compute_online_metrics.py
 ```
 # Installation of pyqg_generative
