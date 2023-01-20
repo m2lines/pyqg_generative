@@ -1,7 +1,7 @@
 # JAMES publication
 This repository was used to obtain all results of the paper Pavel Perezhogin, Laure Zanna, Carlos Fernandez-Granda "Data-driven stochastic parameterizations of subgrid mesoscale eddies in an idealized ocean model" submitted to JAMES. 
 ## Paper Figures
-See [notebooks/paper_figures_1.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/paper_figures_1.ipynb) and [notebooks/paper_figures_1/](https://github.com/m2lines/pyqg_generative/tree/master/notebooks/paper_figures_1).
+See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
 # Installation of pyqg_generative
 ## Requirements
