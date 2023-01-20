@@ -15,7 +15,7 @@ from pyqg_generative.models.parameterization import Parameterization
 from pyqg_generative.tools.operators import coord
 
 class CVAERegression(Parameterization):
-    def __init__(self, regression='full_loss', decoder_var = 'adaptive', folder='model', div=False):
+    def __init__(self, regression='None', decoder_var = 'adaptive', folder='model', div=False):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -43,7 +43,7 @@ class CVAERegression(Parameterization):
 
         self.load_model(folder)
     
-    def fit(self, ds_train, ds_test, num_epochs=50, num_epochs_regression=50, 
+    def fit(self, ds_train, ds_test, num_epochs=200, num_epochs_regression=50, 
         batch_size=64, learning_rate=2e-4, nruns=5):
 
         X_train, Y_train, X_test, Y_test, self.x_scale, self.y_scale = \
