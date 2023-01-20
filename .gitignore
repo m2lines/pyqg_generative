@@ -10,3 +10,4 @@ notebooks/model/*
 notebooks/difference
 notebooks/plot.pdf
 notebooks/difference_recompute*
+notebooks/figures
