@@ -17,4 +17,3 @@ conda install -c conda-forge pyfftw, gcm_filters, pyqg
 git clone https://github.com/m2lines/pyqg_generative.git
 pip install --editable .
 ```
-This site was built using [GitHub Pages](https://pages.github.com/)
