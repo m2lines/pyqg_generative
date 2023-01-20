@@ -11,7 +11,6 @@ import pyqg_generative.tools.operators as op
 from pyqg_generative.tools.computational_tools import PDF_histogram
 from pyqg_generative.tools.parameters import AVERAGE_SLICE_ANDREW
 from pyqg_generative.tools.spectral_tools import calc_ispec, coord, spectrum
-import pyqg_subgrid_experiments as pse
 from pyqg_parameterization_benchmarks.utils import FeatureExtractor
 
 DISTRIB_KEYS = [
@@ -317,7 +316,6 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     ds = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False)
     ds['time'] = ds['time'] / 360
     ds['time'].attrs = {'long_name':'time [$years$]'}
-    ds = pse.Dataset(ds)
 
     #print('Compute statistics')
     stats = xr.Dataset()
@@ -325,8 +323,11 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     def KE(ds):
         return (ds.u**2 + ds.v**2) * 0.5
     
+    def relative_vorticity(ds):
+        return xr.DataArray(FeatureExtractor(ds)('curl(u,v)').compute(), dims=ds.q.dims)
+    
     def Ens(ds):
-        return 0.5 * (ds.relative_vorticity)**2
+        return 0.5 * (relative_vorticity(ds))**2
     
     def KE_time(ds):
         return op.ave_lev(KE(ds), delta=delta).mean(('run', 'x', 'y'))
@@ -334,7 +335,7 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     def Vabs(ds):
         return np.sqrt(2*KE(ds))
 
-    stats['omega'] = ds.relative_vorticity
+    stats['omega'] = relative_vorticity(ds)
     stats['KE'] = KE(ds)
     stats['Ens'] = Ens(ds)
     stats['Vabs'] = Vabs(ds)
@@ -414,7 +415,7 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
 
     stats.to_netcdf(cache)
 
-    return xr.merge([ds.ds, stats])
+    return xr.merge([ds, stats])
 
 def ensemble_dataset_read(model_path, target_path):
     dir = os.path.dirname(model_path)

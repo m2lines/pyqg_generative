@@ -18,7 +18,7 @@ cd pyqg
 pip install --editable .
 ```
 * Install Torch 
-* There may be need to install packages https://github.com/Zanna-ResearchTeam/pyqg_experiments and https://github.com/m2lines/pyqg_parameterization_benchmarks
+* There may be need to install package https://github.com/m2lines/pyqg_parameterization_benchmarks
 * Clone this repository and install it with:
 ```
 pip install --editable .
