@@ -100,6 +100,12 @@ class MeanVarModel(Parameterization):
         return self.y_scale.denormalize(
                 apply_function(self.net_mean, X) + noise * (apply_function(self.net_var, X))**0.5
                 ).squeeze().astype('float64')
+
+    def predict_mean_snapshot(self, m, M=100):
+        X = self.x_scale.normalize(m.q.astype('float32'))
+        return self.y_scale.denormalize(
+                apply_function(self.net_mean, X)
+                ).squeeze().astype('float64')
           
     def predict(self, ds, M=1000):
         X = self.x_scale.normalize(extract(ds, 'q'))

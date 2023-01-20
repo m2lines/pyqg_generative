@@ -27,24 +27,6 @@ def concat_in_time(datasets):
     # Concatenate datasets along the time dimension
     tt = time()
     ds = xr.concat(datasets, dim='time')
-    if float(time() - tt) > 100:
-        print('Line 27 took', time() - tt, 'seconds')
-        print('Len of the datasets', len(datasets), '\n')
-        
-        print('Individual coords:')
-        for d in datasets:
-            print(d.coords)
-        print('Total coord:')
-        print(ds.coords)
-
-        print('\n')
-        print('individual variables:')
-        for d in datasets:
-            print(d.variables)
-        print('total variables:')
-        print(ds.variables)
-
-        raise ValueError('Concatenation of datasets took too long time')
     
     # Diagnostics get dropped by this procedure since they're only present for
     # part of the timeseries; resolve this by saving the most recent
@@ -167,7 +149,7 @@ if __name__ ==  '__main__':
     print(args)
     
     if args.forcing == "yes":
-        Nc = [32, 48, 64, 96]
+        Nc = [48, 64, 96]
 
         datasets = generate_subgrid_forcing(Nc, eval(args.pyqg_params), args.sampling_freq)
         for key in datasets.keys():
