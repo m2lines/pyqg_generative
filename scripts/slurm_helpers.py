@@ -43,7 +43,6 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         '#SBATCH --array='+hpc['array'] if hpc['array'] != 'NONE' else '',
         '#SBATCH --output='+hpc['output'],
         '#SBATCH --error='+hpc['error'],
-        '#SBATCH --mail-user=pp2681@nyu.edu',
         '#SBATCH --mail-type='+hpc['mail'],
         'echo " "',
         'scontrol show jobid -dd $SLURM_JOB_ID',
