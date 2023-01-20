@@ -3,7 +3,7 @@ This repository was used to obtain all results of the paper Pavel Perezhogin, La
 ## Paper Figures
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
-## Generation of data (Expensive and depends on HPC)
+## Generation of JAMES data (Hard and depends on HPC)
 ```
 cd scripts
 ```
