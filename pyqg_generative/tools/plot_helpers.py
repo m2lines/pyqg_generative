@@ -53,7 +53,7 @@ def default_rcParams(kw={}):
     })
     matplotlib.rcParams.update(**kw)
 
-def set_letters(x=-0.2, y=1.05, letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']):
+def set_letters(x=-0.2, y=1.05, fontsize=11, letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']):
     fig = plt.gcf()
     axes = fig.axes
     j = 0
@@ -63,7 +63,7 @@ def set_letters(x=-0.2, y=1.05, letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
             if 'subplot' in key:
                 subplot = True
         if subplot:
-            ax.text(x,y,f'({letters[j]})', transform = ax.transAxes, fontweight='bold', fontsize=11)
+            ax.text(x,y,f'({letters[j]})', transform = ax.transAxes, fontweight='bold', fontsize=fontsize)
             j += 1
 
 def latex_float(f):

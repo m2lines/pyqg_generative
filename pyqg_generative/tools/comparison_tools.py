@@ -296,7 +296,7 @@ def cache_path(path):
     return os.path.join(dir,cachename)
 
 def dataset_smart_read(path, delta=0.25, read_cache=True):
-    print(path)
+    #print(path)
     nfiles = len(glob.glob(path))
     #if nfiles < 10:
         #print('Warning! Computations are unstable. Number of files is less than 10 and equal to', nfiles)
