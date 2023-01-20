@@ -4,10 +4,7 @@ This repository was used to obtain all results of the paper Pavel Perezhogin, La
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
 ## Generation of JAMES data (Hard and depends on HPC)
-```
-cd scripts
-```
-*Check: slurm consistent with your hpc:*
+`cd scripts` and *Check that **slurm** is consistent with your HPC:*
 ```
 python -c "from slurm_helpers import *; create_slurm('','test.py')"
 cat launcher.sh
