@@ -19,13 +19,15 @@ Run each script and pay attention to `BASIC_FOLDER`, `SCRIPT_PATH` and so on:
 # Installation of pyqg_generative
 ## Requirements
 ```
-conda install numpy matplotlib xarray
-conda install -c conda-forge pyfftw, gcm_filters, pyqg
+pip install numpy matplotlib xarray aiohttp requests zarr pyfftw gcm_filters pyqg
 ```
 * Install Torch 
 * Optionally, install [pyqg_parameterization_benchmarks](https://github.com/m2lines/pyqg_parameterization_benchmarks)
+```
+pip install git+https://github.com/m2lines/pyqg_parameterization_benchmarks.git
+```
 
-## Install
+## Install in editable mode
 ```
 git clone https://github.com/m2lines/pyqg_generative.git
 pip install --editable .
