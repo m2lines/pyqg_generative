@@ -293,7 +293,7 @@ def prepare_PV_data(ds_train, ds_test):
 
     return X_train, Y_train, X_test, Y_test, x_scale, y_scale
 
-def extract_arrays(ds: xr.DataArray, features: list[str], lev=slice(0,2)):
+def extract_arrays(ds: xr.DataArray, features, lev=slice(0,2)):
     '''
     Input dataset is expected to have dimensions:
     run, time, lev, lat, lon
@@ -317,7 +317,7 @@ def extract_arrays(ds: xr.DataArray, features: list[str], lev=slice(0,2)):
 
     return arr.reshape(-1, *arr.shape[-3:]).astype('float32')
 
-def array_to_dataset(ds: xr.DataArray, array: np.array, features: list[str], postfix: str=''):
+def array_to_dataset(ds: xr.DataArray, array: np.array, features, postfix=''):
     '''
     Takes array ds only to read dimensions
     '''
