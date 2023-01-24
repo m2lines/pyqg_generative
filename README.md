@@ -26,9 +26,7 @@ pip install numpy matplotlib xarray aiohttp requests zarr pyfftw gcm_filters pyq
 ```
 * Install Torch 
 * Optionally, install [pyqg_parameterization_benchmarks](https://github.com/m2lines/pyqg_parameterization_benchmarks)
-```
-pip install git+https://github.com/m2lines/pyqg_parameterization_benchmarks.git
-```
+`pip install git+https://github.com/m2lines/pyqg_parameterization_benchmarks.git`
 
 ## Install in editable mode
 ```
