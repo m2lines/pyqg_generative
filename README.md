@@ -3,6 +3,9 @@ This repository was used to obtain all results of the paper Pavel Perezhogin, La
 ## Paper Figures
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
+## Try it in Google Colab
+* [Google-Colab/dataset.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/dataset.ipynb) - Description of the dataset containing training data and hires/lores simulations
+
 ## Generation of JAMES data (Hard and depends on HPC)
 `cd scripts` and *Check that **slurm** is consistent with your HPC:*
 ```
