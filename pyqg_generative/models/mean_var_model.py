@@ -23,6 +23,8 @@ class MeanVarModel(Parameterization):
     '''
     def __init__(self, folder='model'):
         super().__init__()
+        os.system(f'mkdir -p {folder}')
+
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
         self.net_mean = AndrewCNN(2,2)
@@ -59,7 +61,6 @@ class MeanVarModel(Parameterization):
         self.save_model()
 
     def save_model(self):
-        os.system('mkdir -p model')
         torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
         torch.save(self.net_var.state_dict(), 'model/net_var.pt')
         self.x_scale.write('x_scale.json')

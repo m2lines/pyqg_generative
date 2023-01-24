@@ -11,6 +11,9 @@ from pyqg_generative.models.parameterization import Parameterization
 
 class OLSModel(Parameterization):
     def __init__(self, div=False, folder='model'):
+        super().__init__()
+        os.system(f'mkdir -p {folder}')
+
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
         self.div = div

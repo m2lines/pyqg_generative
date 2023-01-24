@@ -22,6 +22,9 @@ class CVAERegression(Parameterization):
         'full_loss': predict residual of subgrid forcing, 
         but loss function is the same as in initial problem
         '''
+        super().__init__()
+        os.system(f'mkdir -p {folder}')
+
         # 2 Input layers of q
         n_in = 2
         # 2 Input layers of noise
@@ -251,8 +254,6 @@ def train_CVAE(net, ds_train, ds_test,
     datasets to evaluate prediction on the fly
     '''
     from itertools import chain # to concatenate generators
-
-    os.system('mkdir -p model')
 
     if net.regression != 'None':
         Y_mean = apply_function(net.net_mean, X_train)

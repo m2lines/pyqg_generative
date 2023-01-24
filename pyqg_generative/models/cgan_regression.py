@@ -28,6 +28,9 @@ class CGANRegression(Parameterization):
         'residual_loss': predict residual of subgrid forcing, 
         but loss function is for residual
         '''
+        super().__init__()
+        os.system(f'mkdir -p {folder}')
+
         # 2 Input layers of q
         n_in = 2
         # 2 Input layers of noise
@@ -242,8 +245,6 @@ def train_CGAN(net, ds_train, ds_test,
     nruns - number of runs used in test and train
     datasets to evaluate prediction on the fly
     '''
-    os.system('mkdir -p model')
-
     if net.regression != 'None':
         Y_mean = apply_function(net.net_mean, X_train)
     else:
