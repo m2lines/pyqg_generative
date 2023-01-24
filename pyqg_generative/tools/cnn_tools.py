@@ -429,11 +429,11 @@ class AverageLoss():
     Accumulate over batches for given epoch
     Average after epoch
     '''
-    def __init__(self, log_dict: dict[str, list]):
+    def __init__(self, log_dict):
         self.init_me = True
         self.count = {}
 
-    def accumulate(self, log_dict: dict[str, list], losses: dict[str, float], n: int):
+    def accumulate(self, log_dict, losses, n: int):
         '''
         log_dict: dictionary of timeseries
         losses: dictionary of loss on a batch
@@ -460,7 +460,7 @@ class AverageLoss():
             log_dict[key][-1] += value * n
             self.count[key] += n
     
-    def average(self, log_dict: dict[str, list]):
+    def average(self, log_dict):
         '''
         Updates last element of dictionary with 
         average value
@@ -468,7 +468,7 @@ class AverageLoss():
         for key in self.count.keys():
             log_dict[key][-1] = log_dict[key][-1] / self.count[key]
 
-def dict_postfix(mydict: dict[float], postfix):
+def dict_postfix(mydict, postfix):
     return {str(key)+postfix: val for key, val in mydict.items()}
 
 def minibatch(*arrays: np.array, batch_size=64, shuffle=True):
