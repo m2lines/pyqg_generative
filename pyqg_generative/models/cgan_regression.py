@@ -29,6 +29,7 @@ class CGANRegression(Parameterization):
         but loss function is for residual
         '''
         super().__init__()
+        self.folder = folder
         os.system(f'mkdir -p {folder}')
 
         # 2 Input layers of q
@@ -68,7 +69,7 @@ class CGANRegression(Parameterization):
             prepare_PV_data(ds_train, ds_test)
         
         if self.regression != 'None':
-            if self.load_mean('model'):
+            if self.load_mean(self.folder):
                 print('Net mean is loaded instead of training')
             else:
                 train(self.net_mean,
@@ -84,20 +85,20 @@ class CGANRegression(Parameterization):
     
     def save_model(self, optim_loss, log_train, log_test):
         stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
-        stats.to_netcdf('model/stats.nc')
+        stats.to_netcdf(f'{self.folder}/stats.nc')
         print('Optimal epoch is ', epoch)
         print('The Last epoch is used for prediction')
 
         #os.system('rm model/G_*.pt')
         #os.system('rm model/D_*.pt')
 
-        torch.save(self.G.state_dict(), 'model/G.pt')
-        torch.save(self.D.state_dict(), 'model/D.pt')
+        torch.save(self.G.state_dict(), f'{self.folder}/G.pt')
+        torch.save(self.D.state_dict(), f'{self.folder}/D.pt')
         if self.regression != 'None':
-            torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
-        self.x_scale.write('x_scale.json')
-        self.y_scale.write('y_scale.json')
-        save_model_args('CGANRegression', regression=self.regression, nx=self.nx, generator=self.generator, div=self.div)
+            torch.save(self.net_mean.state_dict(), f'{self.folder}/net_mean.pt')
+        self.x_scale.write('x_scale.json', folder=self.folder)
+        self.y_scale.write('y_scale.json', folder=self.folder)
+        save_model_args('CGANRegression', folder=self.folder, regression=self.regression, nx=self.nx, generator=self.generator, div=self.div)
 
     def load_mean(self, folder):
         if exists(f'{folder}/net_mean.pt'):

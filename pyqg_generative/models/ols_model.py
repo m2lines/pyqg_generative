@@ -12,6 +12,7 @@ from pyqg_generative.models.parameterization import Parameterization
 class OLSModel(Parameterization):
     def __init__(self, div=False, folder='model'):
         super().__init__()
+        self.folder = folder
         os.system(f'mkdir -p {folder}')
 
         # Input 2 layers of q, 
@@ -36,11 +37,11 @@ class OLSModel(Parameterization):
 
     def save_model(self):
         os.system('mkdir -p model')
-        torch.save(self.net.state_dict(), 'model/net.pt')
-        self.x_scale.write('x_scale.json')
-        self.y_scale.write('y_scale.json')
-        save_model_args('OLSModel', div=self.div)
-        log_to_xarray(self.net.log_dict).to_netcdf('model/stats.nc')
+        torch.save(self.net.state_dict(), f'{self.folder}/net.pt')
+        self.x_scale.write('x_scale.json', folder=self.folder)
+        self.y_scale.write('y_scale.json', folder=self.folder)
+        save_model_args('OLSModel', folder=self.folder, div=self.div)
+        log_to_xarray(self.net.log_dict).to_netcdf(f'{self.folder}/stats.nc')
 
     def load_model(self, folder):
         if exists(f'{folder}/net.pt'):

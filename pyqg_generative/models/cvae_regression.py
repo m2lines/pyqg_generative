@@ -23,6 +23,7 @@ class CVAERegression(Parameterization):
         but loss function is the same as in initial problem
         '''
         super().__init__()
+        self.folder = folder
         os.system(f'mkdir -p {folder}')
 
         # 2 Input layers of q
@@ -66,19 +67,19 @@ class CVAERegression(Parameterization):
     
     def save_model(self, optim_loss, log_train, log_test):
         stats, epoch = loss_to_xarray(optim_loss, log_train, log_test)
-        stats.to_netcdf('model/stats.nc')
+        stats.to_netcdf(f'{self.folder}/stats.nc')
         if self.regression != 'None':
-            log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+            log_to_xarray(self.net_mean.log_dict).to_netcdf(f'{self.folder}/stats_mean.nc')
         print('Optimal epoch:', epoch)
         print('The Last epoch is used for prediction')
 
-        torch.save(self.encoder.state_dict(), 'model/encoder.pt')
-        torch.save(self.decoder.state_dict(), 'model/decoder.pt')
+        torch.save(self.encoder.state_dict(), f'{self.folder}/encoder.pt')
+        torch.save(self.decoder.state_dict(), f'{self.folder}/decoder.pt')
         if self.regression != 'None':
-            torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
-        self.x_scale.write('x_scale.json')
-        self.y_scale.write('y_scale.json')
-        save_model_args('CVAERegression', regression=self.regression, div=self.div, decoder_var=self.decoder_var)
+            torch.save(self.net_mean.state_dict(), f'{self.folder}/net_mean.pt')
+        self.x_scale.write('x_scale.json', folder=self.folder)
+        self.y_scale.write('y_scale.json', folder=self.folder)
+        save_model_args('CVAERegression', folder=self.folder, regression=self.regression, div=self.div, decoder_var=self.decoder_var)
 
     def load_model(self, folder):
         if exists(f'{folder}/encoder.pt'):

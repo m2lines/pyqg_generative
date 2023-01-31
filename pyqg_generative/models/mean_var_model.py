@@ -23,6 +23,7 @@ class MeanVarModel(Parameterization):
     '''
     def __init__(self, folder='model'):
         super().__init__()
+        self.folder = folder
         os.system(f'mkdir -p {folder}')
 
         # Input 2 layers of q, 
@@ -39,7 +40,7 @@ class MeanVarModel(Parameterization):
         X_train, Y_train, X_test, Y_test, self.x_scale, self.y_scale = \
             prepare_PV_data(ds_train, ds_test)
         
-        if self.load_mean('model'):
+        if self.load_mean(self.folder):
             print('Net mean is loaded instead of training')
         else:
             train(self.net_mean,
@@ -61,17 +62,17 @@ class MeanVarModel(Parameterization):
         self.save_model()
 
     def save_model(self):
-        torch.save(self.net_mean.state_dict(), 'model/net_mean.pt')
-        torch.save(self.net_var.state_dict(), 'model/net_var.pt')
-        self.x_scale.write('x_scale.json')
-        self.y_scale.write('y_scale.json')
-        save_model_args('MeanVarModel')
+        torch.save(self.net_mean.state_dict(), f'{self.folder}model/net_mean.pt')
+        torch.save(self.net_var.state_dict(), f'{self.folder}/net_var.pt')
+        self.x_scale.write('x_scale.json', folder=self.folder)
+        self.y_scale.write('y_scale.json', folder=self.folder)
+        save_model_args('MeanVarModel', folder=self.folder)
         try:
-            log_to_xarray(self.net_mean.log_dict).to_netcdf('model/stats_mean.nc')
+            log_to_xarray(self.net_mean.log_dict).to_netcdf(f'{self.folder}/stats_mean.nc')
         except:
             # Nothing to save if CNN was read from file
             pass
-        log_to_xarray(self.net_var.log_dict).to_netcdf('model/stats_var.nc')
+        log_to_xarray(self.net_var.log_dict).to_netcdf(f'{self.folder}/stats_var.nc')
 
     def load_mean(self, folder):
         if exists(f'{folder}/net_mean.pt'):

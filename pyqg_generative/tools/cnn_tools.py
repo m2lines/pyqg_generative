@@ -18,10 +18,10 @@ def log_to_xarray(log_dict):
         
     return xr.Dataset(log_dict)
 
-def save_model_args(model, **kw):
+def save_model_args(model, folder='model', **kw):
     d = dict(model=model)
     d = {**d, **kw}
-    with open('model/model_args.json', 'w') as file:
+    with open(f'{folder}/model_args.json', 'w') as file:
         json.dump(d, file)
 
 def init_seeds():
@@ -407,9 +407,9 @@ class ChannelwiseScaler:
         use for quadratic variables
         '''
         return X * (self.std**2)
-    def write(self, name):
+    def write(self, name, folder='model'):
         to_str = lambda x: str(x.tolist())
-        with open(f'model/{name}', 'w') as file:
+        with open(f'{folder}/{name}', 'w') as file:
             json.dump(dict(mean=to_str(self.mean), std=to_str(self.std)), file)
     def read(self, name, folder='model'):
         to_numpy = lambda x: np.array(eval(x)).astype('float32')
