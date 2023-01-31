@@ -62,7 +62,7 @@ class MeanVarModel(Parameterization):
         self.save_model()
 
     def save_model(self):
-        torch.save(self.net_mean.state_dict(), f'{self.folder}model/net_mean.pt')
+        torch.save(self.net_mean.state_dict(), f'{self.folder}/net_mean.pt')
         torch.save(self.net_var.state_dict(), f'{self.folder}/net_var.pt')
         self.x_scale.write('x_scale.json', folder=self.folder)
         self.y_scale.write('y_scale.json', folder=self.folder)
