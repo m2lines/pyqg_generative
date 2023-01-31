@@ -127,7 +127,7 @@ class Parameterization(pyqg.QParameterization):
         time = AVERAGE_SLICE_ANDREW
         Nbins = 70
         for lev in [0,1]:
-            arr = ds[target].isel(time=time, lev=lev)
+            arr = preds[target].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
             xmin = -5; xmax = 5
             coords = None
@@ -140,7 +140,7 @@ class Parameterization(pyqg.QParameterization):
                 preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords)
         
         for lev in [0,1]:
-            arr = ds[target+'_res'].isel(time=time, lev=lev)
+            arr = preds[target+'_res'].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
             xmin = -5; xmax = 5
             coords = None
