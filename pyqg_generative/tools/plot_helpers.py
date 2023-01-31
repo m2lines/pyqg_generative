@@ -114,7 +114,10 @@ def imshow(_q, cbar=True, location='right', cbar_label=None, ax=None, cmap=None,
     ax.set_xticks([])
     ax.set_yticks([])
     if aspect:
-        ax.set_box_aspect(1)
+        try:
+            ax.set_box_aspect(1)
+        except:
+            pass
     if axes:
         ax.set_xlabel('Longitude')
         ax.set_ylabel('Latitude')
