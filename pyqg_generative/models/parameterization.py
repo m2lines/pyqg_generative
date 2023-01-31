@@ -35,6 +35,7 @@ class Parameterization(pyqg.QParameterization):
     
     def test_offline(self, ds: xr.Dataset, ensemble_size=1000):
         preds = self.predict(ds, ensemble_size) # return sample, mean and var
+        preds['q'] = ds.q
         preds.attrs = ds.attrs
         
         target = 'q_forcing_advection'
@@ -124,32 +125,31 @@ class Parameterization(pyqg.QParameterization):
 
         # PDF computations
         time = AVERAGE_SLICE_ANDREW
-        Nbins = 50
+        Nbins = 70
         for lev in [0,1]:
-            arr = preds[target].isel(time=time, lev=lev)
+            arr = ds[target].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
-            xmin = float(mean - 4*std); xmax = float(mean + 4*std)
+            xmin = -5; xmax = 5
             coords = None
             for suffix in ['', '_gen', '_mean']:
-                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
+                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel() / float(std)
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
                 if coords is None:
-                    coords=[coord(points, '$dq/dt, s^{-2}$')]
-                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords,
-                    attrs={'long_name': 'subgrid forcing PDF'})
-
+                    coords=[coord(points, 'RMS units')]
+                    
+                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords)
+        
         for lev in [0,1]:
-            arr = preds[target+'_res'].isel(time=time, lev=lev)
+            arr = ds[target+'_res'].isel(time=time, lev=lev)
             mean, std = arr.mean(), arr.std()
-            xmin = float(mean - 4*std); xmax = float(mean + 4*std)
+            xmin = -5; xmax = 5
             coords = None
             for suffix in ['_res', '_gen_res']:
-                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel()
+                array = preds[target+suffix].isel(time=time, lev=lev).values.ravel() / float(std)
                 points, density = PDF_histogram(array, xmin = xmin, xmax=xmax, Nbins=Nbins)
                 if coords is None:
-                    coords=[coord(points, '$dq/dt, s^{-2}$')]
-                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='q_'+str(lev), coords=coords,
-                    attrs={'long_name': 'subgrid forcing residual PDF'})
+                    coords=[coord(points, 'RMS units')]
+                preds['PDF'+suffix+str(lev)] = xr.DataArray(density, dims='dq_'+str(lev), coords=coords)
 
         # Fix issue with coordinates
         preds['time'] = ds['time'].copy(deep=True)
