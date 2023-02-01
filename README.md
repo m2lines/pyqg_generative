@@ -6,7 +6,8 @@ See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/b
 ## Try it in Google Colab
 * [Google-Colab/dataset.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/dataset.ipynb) - Description of the dataset containing training data and hires/lores simulations
 * [Google-Colab/training.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/training.ipynb) - An example of training of the generative subgrid models
-* [Google-Colab/offline_analysis.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/offline_analysis.ipynb) - Prediction and plotting subgrid forcing. Comparing spectra. Computing offline metrics.
+* [Google-Colab/offline-analysis.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/offline-analysis.ipynb) - Prediction and plotting subgrid forcing. Comparing spectral properties of generated fields. Computing offline metrics.
+* [Google-Colab/online-simulations.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/online-simulations.ipynb) - Run online simulations with pretrained subgrid models on GPUs. Compare Kinetic Energy (KE), spectrum of KE, snapshots. Compute online metrics.
 
 ## Generation of JAMES data (Hard and depends on HPC)
 `cd scripts` and *Check that **slurm** is consistent with your HPC:*
