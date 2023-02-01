@@ -27,7 +27,10 @@ def default_rcParams(kw={}):
     plt.plot()
     plt.close()
     rcParams = matplotlib.rcParamsDefault.copy()
-    rcParams.pop('backend') # can break inlining
+    try:
+        rcParams.pop('backend') # can break inlining
+    except:
+        pass
     matplotlib.rcParams.update(rcParams)
     
     matplotlib.rcParams.update({
