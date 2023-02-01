@@ -1,5 +1,15 @@
 # JAMES publication
 This repository was used to obtain all results of the paper Pavel Perezhogin, Laure Zanna, Carlos Fernandez-Granda "Data-driven stochastic parameterizations of subgrid mesoscale eddies in an idealized ocean model" submitted to JAMES. 
+
+The main idea of the paper is to build stochastic subgrid parameterizations of mesoscale eddies using generative approach of Machine Learning (ML). Subgrid parameterization accounts for the missing physics induced by the eddies which are not resolved on the grid. Efficient parameterization should allow to simulate turbulent flows on a coarse computational grid. Turbulent flow represented on a coarse grid misses the information about the state of the subgrid eddies. It results in an uncertainty in the missing forcing induced by these eddies. Here we aim to produce samples from the distribution of all possible subgrid forcings consistent with resolved flow:
+```math
+S \sim \rho(S|\overline{q})
+```
+
+An example of the many possible realizations of the subgrid forcing at fixed resolved flow is show below:
+![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/eddy.gif).
+
+An animation is produced using GAN model [notebooks/Animation.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/Animation.ipynb).
 ## Paper Figures
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
