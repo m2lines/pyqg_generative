@@ -25,7 +25,7 @@ Run each script and pay attention to `BASIC_FOLDER`, `SCRIPT_PATH` and so on:
 # Installation of pyqg_generative
 ## Requirements
 ```
-pip install numpy matplotlib xarray aiohttp requests zarr pyfftw gcm_filters pyqg cmocean
+pip install numpy matplotlib xarray aiohttp requests zarr pyfftw gcm_filters pyqg cmocean gplearn
 ```
 * Install [Pytorch](https://pytorch.org/) 
 * Optionally, install [pyqg_parameterization_benchmarks](https://github.com/m2lines/pyqg_parameterization_benchmarks)
