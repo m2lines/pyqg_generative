@@ -3,6 +3,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import cmocean
+import os
+from PIL import Image
 
 def show_fonts():
     import matplotlib.font_manager
@@ -46,12 +48,41 @@ def default_rcParams(kw={}):
         'axes.formatter.limits': (-1,2),
         'axes.formatter.use_mathtext': True,
         'axes.labelpad': 0,
-        'axes.titlelocation' : 'right',
+        'axes.titlelocation' : 'center',
         
         'savefig.bbox': 'tight',
         'savefig.pad_inches': 0.1
     })
     matplotlib.rcParams.update(**kw)
+
+def create_animation(fun, idx, filename='my-animation.gif', dpi=None, FPS=24, loop=0):
+    '''
+    See https://pythonprogramming.altervista.org/png-to-gif/
+    fun(i) - a function creating one snapshot, has only one input:
+        - number of frame i
+    idx - range of frames, i in idx
+    FPS - frames per second
+    filename - animation name
+    dpi - set 300 or so to increase quality
+    loop - number of repeats of the gif
+    '''
+    frames = []
+    for i in idx:
+        fun(i)
+        plt.savefig('.frame.png', dpi=dpi)
+        plt.close()
+        frames.append(Image.open('.frame.png'))
+        print(f'Frame {i} is created', end='\r')
+    os.system('rm .frame.png')
+    # How long to persist one frame in milliseconds to have a desired FPS
+    duration = 1000 / FPS
+    print(f'Animation at FPS={FPS} will last for {len(idx)/FPS} seconds')
+    frames[0].save(
+        filename, format='GIF',
+        append_images=frames[1:],
+        save_all=True,
+        duration=duration,
+        loop=loop)
 
 def set_letters(x=-0.2, y=1.05, fontsize=11, letters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p']):
     fig = plt.gcf()

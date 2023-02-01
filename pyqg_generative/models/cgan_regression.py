@@ -185,8 +185,8 @@ class CGANRegression(Parameterization):
     def predict_ensemble(self, ds, M=1000):
         X = self.x_scale.normalize(extract(ds, 'q'))
         Y = apply_function(self.G, X, fun=self.generate_ensemble, M=M)
-
-        return Y
+        return xr.DataArray(self.y_scale.denormalize(Y).reshape([-1,*ds.q.shape]),
+            dims=['ens', 'run', 'time', 'lev', 'y', 'x'])
         
 def gradient_penalty(net, xtrue, ytrue, yfake1, 
     yfake2):
