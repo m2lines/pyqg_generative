@@ -112,6 +112,8 @@ def run_simulation(pyqg_params, parameterization=None, q_init=None,
         m = stochastic_QGModel(params, parameterization['sampling'],
             parameterization['nsteps'])
 
+    set_initial_condition(m)
+    
     if q_init is not None:
         m.q = q_init.astype('float64')
         m._invert()
@@ -125,6 +127,29 @@ def run_simulation(pyqg_params, parameterization=None, q_init=None,
     out = concat_in_time(ds).astype('float32')
     out.attrs['pyqg_params'] = str(pyqg_params)
     return out
+
+def set_initial_condition(m):
+    '''
+    This initial condition is used in the JAMES paper
+    It slightly modifies the default one to ensure that:
+    1) The mean is zero
+    2) Noise has the same power density at all resolutions
+    3) Power density is confined to the resolved scales of 48x48 model
+    '''
+    q2d = 1e-7*np.random.rand(m.ny,m.nx)
+    q2d -= q2d.mean(axis=(-2,-1), keepdims=True)
+    # Scale noise as discretization to 2D white noise (~1/sqrt(dt) for 1d Wiener process) 
+    # Disturbance for 64^2 grid is not changed
+    q2d *= np.sqrt(m.nx * m.ny / 64**2)
+    q1d = 1e-6*(np.ones((m.ny,1)) * np.random.rand(1,m.nx))
+    q1d -= q1d.mean(axis=(-2,-1), keepdims=True)
+    q1d *= np.sqrt(m.nx / 64)
+    noise = q1d+q2d
+    # Retain only large waves (correspondsing to 32^2 model)
+    Xf = np.fft.rfftn(noise)
+    noise = np.fft.irfftn(Xf * (m.wv < np.pi / (m.L/32)))
+    m.set_q1q2(noise, 0*m.x)
+    m._invert()
 
 if __name__ ==  '__main__':
     import argparse
