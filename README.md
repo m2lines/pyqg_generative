@@ -6,8 +6,8 @@ The main idea of the paper is to build stochastic subgrid parameterizations of m
 S \sim \rho(S|\overline{q})
 ```
 
-An example of many possible realizations of the subgrid forcing at fixed resolved flow is show below:
-![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/eddy.gif).
+An example of many possible realizations of the subgrid forcing at fixed resolved flow is shown below:
+![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/eddy.gif)
 
 An animation is produced using GAN model [notebooks/Animation.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/Animation.ipynb).
 ## Paper Figures
