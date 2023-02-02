@@ -10,6 +10,11 @@ An example of many possible realizations of the subgrid forcing at fixed resolve
 ![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/eddy.gif)
 
 An animation is produced using GAN model [notebooks/Animation.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/Animation.ipynb).
+
+Online simulations with generative models (GAN, VAE) reveal better numerical stability properties compared to the baseline GZ ([Guillaumin Zanna 2021](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2021MS002534)):
+
+![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/solution-animations/velocity_upper.gif)
+
 ## Paper Figures
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
