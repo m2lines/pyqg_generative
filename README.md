@@ -15,6 +15,7 @@ Online simulations with generative models (GAN, VAE) reveal better numerical sta
 
 ![](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/solution-animations/velocity_upper.gif)
 
+An animation is produced using [notebooks/Animate-solution.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/Animate-solution.ipynb).
 ## Paper Figures
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
