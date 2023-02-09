@@ -20,6 +20,7 @@ An animation is produced using [notebooks/Animate-solution.ipynb](https://github
 See [notebooks/JAMES_figures.ipynb](https://github.com/m2lines/pyqg_generative/blob/master/notebooks/JAMES_figures.ipynb).
 
 ## Try it in Google Colab
+In a case dataset in cloud is not working, download it from [Zenodo](https://doi.org/10.5281/zenodo.7622683)! 
 * [Google-Colab/dataset.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/dataset.ipynb) - Description of the dataset containing training data and hires/lores simulations
 * [Google-Colab/training.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/training.ipynb) - An example of training of the generative subgrid models
 * [Google-Colab/offline-analysis.ipynb](https://colab.research.google.com/github/m2lines/pyqg_generative/blob/master/Google-Colab/offline-analysis.ipynb) - Prediction and plotting subgrid forcing. Comparing spectral properties of generated fields. Computing offline metrics.
