@@ -1,5 +1,5 @@
 # JAMES publication
-This repository was used to obtain all results of the paper Pavel Perezhogin, Laure Zanna, Carlos Fernandez-Granda "Generative data-driven approaches for stochastic subgrid parameterizations in an idealized ocean model" submitted to JAMES. 
+This repository was used to obtain all results of the paper Pavel Perezhogin, Laure Zanna, Carlos Fernandez-Granda "Generative data-driven approaches for stochastic subgrid parameterizations in an idealized ocean model" submitted to JAMES; [preprint](arXiv preprint arXiv:2302.07984)
 
 The main idea of the paper is to build stochastic subgrid parameterizations of mesoscale eddies using generative approach of Machine Learning (ML). Subgrid parameterization accounts for the missing physics induced by the eddies which are not resolved on the grid. Efficient parameterization should allow to simulate turbulent flows on a coarse computational grid. Turbulent flow represented on a coarse grid misses the information about the state of the subgrid eddies. It results in an uncertainty in the missing forcing induced by these eddies. Here we aim to produce samples from the distribution of all possible subgrid forcings consistent with resolved flow:
 ```math
