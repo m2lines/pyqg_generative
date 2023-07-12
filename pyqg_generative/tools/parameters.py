@@ -15,8 +15,14 @@ class ConfigurationDict(dict):
         '''
         dd = self.copy()
         dd['nx'] = _nx
+        if _nx == 1024:
+            dt = 600
+        if _nx == 512:
+            dt = 1800
         if _nx == 256:
             dt = 3600
+        if _nx == 2048:
+            dt = 1800
         if _nx == 128 or _nx == 96:
             dt = 7200
         if _nx <= 64:

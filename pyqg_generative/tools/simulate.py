@@ -13,7 +13,29 @@ from pyqg_generative.models.cgan_regression import CGANRegression
 from pyqg_generative.models.cvae_regression import CVAERegression
 from pyqg_generative.models.physical_parameterizations import *
 
-@timer
+def drop_vars(ds):
+    '''
+    Drop complex variables 
+    and convert to float32
+    '''
+    for key,var in ds.variables.items():
+        if var.dtype == np.float64:
+            ds[key] = var.astype(np.float32)
+        elif var.dtype == np.complex128:
+            ds = ds.drop_vars(key)
+    for key in ['dqdt', 'ufull', 'vfull']:
+        if key in ds.keys():
+            ds = ds.drop_vars([key])
+    if 'p' in ds.keys():
+        ds = ds.rename({'p': 'psi'}) # Change for conventional name
+    
+    if ds['time'].attrs['units'] != 'days':
+        ds['time'] = ds.time.values / 86400
+        ds['time'].attrs['units'] = 'days'
+    
+    return ds
+
+#@timer
 def concat_in_time(datasets):
     '''
     Concatenation of snapshots in time:
@@ -26,25 +48,14 @@ def concat_in_time(datasets):
     # Concatenate datasets along the time dimension
     tt = time()
     ds = xr.concat(datasets, dim='time')
-    
-    # Diagnostics get dropped by this procedure since they're only present for
-    # part of the timeseries; resolve this by saving the most recent
-    # diagnostics (they're already time-averaged so this is ok)
-    for key,var in datasets[-1].variables.items():
-        if key not in ds:
-            ds[key] = var.isel(time=-1)
 
-    # To save on storage, reduce double -> single
-    # And discard complex vars
-    for key,var in ds.variables.items():
-        if var.dtype == np.float64:
-            ds[key] = var.astype(np.float32)
-        elif var.dtype == np.complex128:
-            ds = ds.drop_vars(key)
-
-    ds = ds.rename({'p': 'psi'}) # Change for conventional name
-    ds['time'] = ds.time.values / 86400
-    ds['time'].attrs['units'] = 'days'
+    # Spectral statistics are taken from the last 
+    # snapshot because it is time-averaged
+    for key in datasets[-1].keys():
+        if 'k' in datasets[-1][key].dims:
+            ds[key] = datasets[-1][key].isel(time=-1)
+        
+    ds = drop_vars(ds)
 
     return ds
 
@@ -71,10 +82,12 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
     pyqg_params['tmax'] = float(pyqg_params['tmax'])
     m = pyqg.QGModel(**pyqg_params)
 
+    set_initial_condition(m)
+
     out = {}
     for t in m.run_with_snapshots(tsnapint=sampling_freq):
         qdns = m.q
-        for op in [Operator1, Operator2, Operator4]:
+        for op in [Operator1, Operator2]:
             for nc in Nc:
                 forcing, mf = PV_subgrid_forcing(qdns, nc, op, pyqg_params)
                 mf = mf.to_dataset()
@@ -117,16 +130,19 @@ def run_simulation(pyqg_params, parameterization=None, q_init=None,
     if q_init is not None:
         m.q = q_init.astype('float64')
         m._invert()
-        ds = [m.to_dataset().copy(deep=True)] # convenient to have IC saved
+        ds = drop_vars(m.to_dataset()).copy(deep=True) # convenient to have IC saved
     else:
-        ds = [] # for backward compatibility
+        ds = None
 
-    for t in m.run_with_snapshots(tsnapint=sampling_freq): 
-        ds.append(m.to_dataset().copy(deep=True))
-    
-    out = concat_in_time(ds).astype('float32')
-    out.attrs['pyqg_params'] = str(pyqg_params)
-    return out
+    for t in m.run_with_snapshots(tsnapint=sampling_freq):
+        _ds = drop_vars(m.to_dataset()).copy(deep=True)
+        if ds is None:
+            ds = _ds
+        else:
+            ds = concat_in_time([ds, _ds])
+            
+    ds.attrs['pyqg_params'] = str(pyqg_params)
+    return ds
 
 def set_initial_condition(m):
     '''
@@ -162,6 +178,7 @@ if __name__ ==  '__main__':
     parser.add_argument('--forcing', type=str, default="no")
     parser.add_argument('--sampling_freq', type=int, default=ANDREW_1000_STEPS)
     parser.add_argument('--reference', type=str, default="no")
+    parser.add_argument('--molecular_viscosity', type=str, default="no")
     parser.add_argument('--parameterization', type=str, default="no")
     parser.add_argument('--forecast', type=str, default="no")
     parser.add_argument('--subfolder', type=str, default="")
@@ -183,6 +200,38 @@ if __name__ ==  '__main__':
     if args.reference == "yes":
         print(args.pyqg_params)
         run_simulation(eval(args.pyqg_params), sampling_freq=args.sampling_freq).to_netcdf(
+            os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
+        )
+
+    if args.molecular_viscosity == "yes":
+        class Laplace(pyqg.QParameterization):
+            def __init__(self, nu=0., PV=False):
+                self.nu = nu
+                self.PV = PV
+                print(f'Laplace is initialized with: {nu}, {PV}')
+
+            def __call__(self, m):
+                lap = m.ik**2 + m.il**2
+                if self.PV:
+                    qh = m.qh
+                else:
+                    qh = lap * m.ph
+                
+                dq = self.nu * m.ifft(lap * qh)
+                return dq
+            
+            def __repr__(self):
+                return f"Laplace(nu={self.nu}, "\
+                                            f"PV={self.PV})"
+        
+        pyqg_params = eval(args.pyqg_params)
+        print(pyqg_params)
+        lap = Laplace(pyqg_params.pop('nu'))
+        pyqg_params['parameterization'] = lap
+        pyqg_params['filterfac'] = 1e+20 # 2/3 dealiasing
+        print(pyqg_params)
+
+        run_simulation(pyqg_params, sampling_freq=args.sampling_freq).to_netcdf(
             os.path.join(args.subfolder, f'{args.ensemble_member}.nc')
         )
 
