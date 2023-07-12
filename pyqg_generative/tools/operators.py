@@ -131,6 +131,64 @@ def cut_off(X, nc):
 
     return np.fft.irfftn(trunc)
 
+def fft_interpolate(x, n, N, truncate_2h=True):
+    '''
+    Interpolate variable (var)
+    from grid n * n to grid 
+    N * N using FFT
+    x may be 2D or 3D array
+    with spatial dimensions as two last ones
+    '''
+    if x.shape[-2] != n or x.shape[-1] != n:
+        raise ValueError('Input variable must be n*n points')
+    if n%2 != 0 or N%2 != 0:
+        raise ValueError('Grid sizes (n,N) must be even')
+    
+    if len(x.shape) == 2:
+        Xf = np.zeros((N,N//2+1), dtype='complex128')
+    elif len(x.shape) == 3:
+        Xf = np.zeros((x.shape[0],N,N//2+1), dtype='complex128')
+    
+    nn = min(n//2,N//2)
+    
+    xf = np.fft.rfftn(x, axes=(-2,-1))
+    
+    # We truncate this harmonic
+    # Because it is probably wrongly
+    # assigned in Fourier space below
+    if truncate_2h:
+        if len(x.shape) == 2:
+            xf[nn,0] = 0
+        elif len(x.shape) == 3:
+            xf[:,nn,0] = 0
+
+    if len(x.shape) == 2:
+        Xf[:nn,:nn+1]  = xf[:nn,:nn+1]
+        Xf[-nn:,:nn+1] = xf[-nn:,:nn+1]
+    elif len(x.shape) == 3:
+        Xf[:,:nn,:nn+1]  = xf[:,:nn,:nn+1]
+        Xf[:,-nn:,:nn+1] = xf[:,-nn:,:nn+1]
+        
+    # These Harmonics needs to be removed
+    # Harmonics (nn,0); (0,nn) and (nn,nn)
+    # contain only real part
+    # So, it is important for truncation
+    # to keep signal real
+    # Also, for harmonics (:,nn) it is 
+    # difficult to preserve complex-conjugate symmetry
+    # So, we do similarly to def cut_off
+    # Because these harmonics contain only real part
+    # in coarsegrained signal or signal to be 
+    # interpoalted, we set them to zero
+    if truncate_2h:
+        if len(x.shape) == 2:
+            Xf[nn,0] = 0
+            Xf[:,nn] = 0
+        elif len(x.shape) == 3:
+            Xf[:,nn,0] = 0
+            Xf[:,:,nn] = 0
+    return np.fft.irfftn(Xf, axes=(-2,-1)) * (N/n)**2    
+
 @array_format
 def clean_2h(X, nc):
     '''
@@ -188,8 +246,26 @@ def divergence(fx, fy):
         return m.ifft(m.fft(x) * m.il)
     return ddx(fx) + ddy(fy)
 
-def advect(var, u, v):
-    return divergence(var*u, var*v)
+def advect(var, u, v, dealias='none'):
+    if dealias == 'none':
+        return divergence(var*u, var*v)
+    elif dealias == '2/3-rule':
+        m = pyqg.QGModel(nx=u.shape[1], log_level=0, filterfac=1e+20)
+        _var = m.ifft(m.fft(var) * m.filtr)
+        _u = m.ifft(m.fft(u) * m.filtr)
+        _v = m.ifft(m.fft(v) * m.filtr)
+        return m.ifft(m.fft(divergence(_var*_u, _var*_v)) * m.filtr)
+    elif dealias == '3/2-rule':
+        n = u.shape[1]
+        N = int((n*3)//2)
+        _var = fft_interpolate(var, n, N)
+        _u = fft_interpolate(u, n, N)
+        _v = fft_interpolate(v, n, N)
+        var_u = fft_interpolate(_var*_u, N, n)
+        var_v = fft_interpolate(_var*_v, N, n)
+        return divergence(var_u, var_v)
+    else:
+        raise ValueError('dealias should be none or 2/3-rule')
 
 def PV_subgrid_flux(q, nc, operator, pyqg_params):
     '''
