@@ -4,7 +4,7 @@ import pyqg
 import json 
 
 from pyqg_generative.tools.cnn_tools import timer
-from pyqg_generative.tools.operators import Operator1, Operator2, Operator4, PV_subgrid_forcing
+from pyqg_generative.tools.operators import Operator1, Operator2, Operator4, Operator5, PV_subgrid_forcing
 from pyqg_generative.tools.parameters import ANDREW_1000_STEPS, DAY
 from pyqg_generative.tools.stochastic_pyqg import stochastic_QGModel
 from pyqg_generative.models.ols_model import OLSModel
@@ -72,12 +72,12 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
     Returns dictionary of datasets, where each key corresponds to 
     combination of operator and resolution
     '''
-    def key(op, nc):
+    def key(op, nc, string):
         '''
         Function providing key for a combination
         of operator and coarse resolution
         '''
-        return op.__name__ + '-' + str(nc)
+        return op.__name__ + '-' + str(nc) + string
 
     pyqg_params['tmax'] = float(pyqg_params['tmax'])
     m = pyqg.QGModel(**pyqg_params)
@@ -87,18 +87,18 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
     out = {}
     for t in m.run_with_snapshots(tsnapint=sampling_freq):
         qdns = m.q
-        for op in [Operator1, Operator2]:
+        for op in [Operator5]:
             for nc in Nc:
-                forcing, mf, _ = PV_subgrid_forcing(qdns, nc, op, pyqg_params)
+                forcing, mf, _ = PV_subgrid_forcing(qdns, nc, op, pyqg_params, '3/2-rule')
                 mf = mf.to_dataset()
                 forcing = mf.q*0 + forcing # inherit coordinate information
                 ds = xr.Dataset({'q_forcing_advection': forcing, 'q': mf.q, 'u': mf.u, 'v': mf.v, 'psi': mf.p}).astype('float32').squeeze()
                 ds['time'] = m.t / 86400
                 ds['time'].attrs['units'] = 'days'
                 try:
-                    out[key(op,nc)].append(ds)
+                    out[key(op,nc,'-dealias')].append(ds)
                 except KeyError:
-                    out[key(op,nc)] = [ds]
+                    out[key(op,nc,'-dealias')] = [ds]
     for key in out.keys():
         out[key] = xr.concat(out[key], 'time'). \
             assign_attrs({'pyqg_params': str(pyqg_params)}). \
