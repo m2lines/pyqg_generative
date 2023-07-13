@@ -286,6 +286,27 @@ def PV_subgrid_forcing(q, nc, operator, pyqg_params):
     forcing = advect(mf.q, mf.u, mf.v) - operator(advect(m.q, m.u, m.v), nc)
     return forcing, mf
 
+def PV_subgrid_forcing_three_second_dealiasing(q, nc, pyqg_params):
+    params = pyqg_params.copy()
+    params.update(nx=q.shape[1], log_level=0)
+    m = pyqg.QGModel(**params)
+    m.q = q.astype('float64')
+    m._invert() # Computes real space velocities and Fourier stream function
+
+    # Coarsegrain main variable to new grid
+    # Note that 2h harmonics are removed here
+    qf = fft_interpolate(m.q, m.nx, nc)
+    params.update(nx=qf.shape[1])
+    mf = pyqg.QGModel(**params)
+    mf.q = qf
+    mf._invert()
+
+    # Here we compute advection on both grids according to 3/2-dealiased rule
+    # note that coarsegraining operator is again fft_interpolate and thus removes 2h harmonics
+    # Function advect with 3/2-rule also filters these harmonics
+    forcing = advect(mf.q, mf.u, mf.v, dealias='3/2-rule') - fft_interpolate(advect(m.q, m.u, m.v, dealias='3/2-rule'), m.nx, nc)
+    return forcing, mf, m
+
 def PV_forcing_total(q, nc, operator, pyqg_params):
     params1 = pyqg_params.copy()
     params1.update(nx=q.shape[1], log_level=0)
