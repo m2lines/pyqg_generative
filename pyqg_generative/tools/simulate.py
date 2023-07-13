@@ -89,7 +89,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
         qdns = m.q
         for op in [Operator1, Operator2]:
             for nc in Nc:
-                forcing, mf = PV_subgrid_forcing(qdns, nc, op, pyqg_params)
+                forcing, mf, _ = PV_subgrid_forcing(qdns, nc, op, pyqg_params)
                 mf = mf.to_dataset()
                 forcing = mf.q*0 + forcing # inherit coordinate information
                 ds = xr.Dataset({'q_forcing_advection': forcing, 'q': mf.q, 'u': mf.u, 'v': mf.v, 'psi': mf.p}).astype('float32').squeeze()
