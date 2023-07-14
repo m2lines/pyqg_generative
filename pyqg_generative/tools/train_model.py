@@ -17,6 +17,21 @@ parser.add_argument('--transfer_path', type=str, default='/scratch/pp2681/pyqg_g
 args = parser.parse_args()
 print(args)
 
+try:
+    import torch
+    print(torch.__version__)
+
+    # How many GPUs are there?
+    print(torch.cuda.device_count())
+
+    # Get the name of the current GPU
+    print(torch.cuda.get_device_name(torch.cuda.current_device()))
+
+    # Is PyTorch using a GPU?
+    print(torch.cuda.is_available())
+except:
+    print('No GPU was detected.')
+
 ds = xr.open_mfdataset(args.train_path, combine='nested', concat_dim='run')
 train = ds.isel(run=slice(0,250))
 validate = ds.isel(run=slice(250,275))

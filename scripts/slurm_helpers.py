@@ -52,7 +52,7 @@ def create_slurm(folder, script_py, hpc=DEFAULT_HPC, args=DEFAULT_ARGS):
         'echo " "',
         'module purge'
     ]
-    if 'mi50' not in hpc['gres']:
+    if 'mi' not in hpc['gres']:
         singularity = 'singularity exec --nv ' \
             + '--overlay /scratch/pp2681/python-container/python-overlay.ext3:ro ' \
             + '/scratch/work/public/singularity/cuda11.6.124-cudnn8.4.0.27-devel-ubuntu20.04.4.sif ' \
