@@ -265,7 +265,7 @@ def advect(var, u, v, dealias='none'):
         var_v = fft_interpolate(_var*_v, N, n)
         return divergence(var_u, var_v)
     else:
-        raise ValueError('dealias should be none or 2/3-rule')
+        raise ValueError('dealias should be none or 2/3-rule or 3/2-rule')
 
 def PV_subgrid_flux(q, nc, operator, pyqg_params):
     '''

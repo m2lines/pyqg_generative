@@ -1,0 +1,1 @@
+singularity exec --overlay /scratch/pp2681/python-container/overlay-25GB-500K.ext3:ro /scratch/work/public/singularity/hudson/images/rocm4.2-ubuntu20.04.sif /bin/bash -c "source /ext3/env.sh; time python CNN.py; time python CNN_training.py"
