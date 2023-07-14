@@ -21,15 +21,19 @@ class MeanVarModel(Parameterization):
     Model predicting pointwise conditional mean and variance
     https://arxiv.org/pdf/1811.05910.pdf
     '''
-    def __init__(self, folder='model'):
+    def __init__(self, folder='model', 
+                 hidden_channels=[128, 64, 32, 32, 32, 32, 32]
+                 ):
         super().__init__()
         self.folder = folder
         os.system(f'mkdir -p {folder}')
 
+        self.hidden_channels = hidden_channels
+
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
-        self.net_mean = AndrewCNN(2,2)
-        self.net_var = VarCNN(2,2)
+        self.net_mean = AndrewCNN(2,2,hidden_channels=hidden_channels)
+        self.net_var = VarCNN(2,2,hidden_channels=hidden_channels)
 
         self.load_mean(folder)
         self.load_var(folder)
@@ -66,7 +70,8 @@ class MeanVarModel(Parameterization):
         torch.save(self.net_var.state_dict(), f'{self.folder}/net_var.pt')
         self.x_scale.write('x_scale.json', folder=self.folder)
         self.y_scale.write('y_scale.json', folder=self.folder)
-        save_model_args('MeanVarModel', folder=self.folder)
+        save_model_args('MeanVarModel', folder=self.folder, 
+                        hidden_channels=self.hidden_channels)
         try:
             log_to_xarray(self.net_mean.log_dict).to_netcdf(f'{self.folder}/stats_mean.nc')
         except:

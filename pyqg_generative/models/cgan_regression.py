@@ -19,7 +19,9 @@ LAMBDA_DRIFT = 1e-3
 LAMBDA_GP = 10
 
 class CGANRegression(Parameterization):
-    def __init__(self, regression='None', nx=64, generator='Andrew', folder='model', div=False):
+    def __init__(self, regression='None', nx=64, 
+                 generator='Andrew', folder='model', div=False,
+                 hidden_channels=[128, 64, 32, 32, 32, 32, 32]):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -43,9 +45,10 @@ class CGANRegression(Parameterization):
         self.generator = generator
         self.nx = nx
         self.div = div
+        self.hidden_channels = hidden_channels
 
         if generator == 'Andrew':
-            self.G = AndrewCNN(n_in+self.n_latent,n_out, div=div)
+            self.G = AndrewCNN(n_in+self.n_latent,n_out, div=div, hidden_channels=hidden_channels)
         elif generator == 'DeepInversion':
             self.G = DeepInversionGenerator(n_in+self.n_latent,n_out)
         else:
@@ -98,7 +101,10 @@ class CGANRegression(Parameterization):
             torch.save(self.net_mean.state_dict(), f'{self.folder}/net_mean.pt')
         self.x_scale.write('x_scale.json', folder=self.folder)
         self.y_scale.write('y_scale.json', folder=self.folder)
-        save_model_args('CGANRegression', folder=self.folder, regression=self.regression, nx=self.nx, generator=self.generator, div=self.div)
+        save_model_args('CGANRegression', folder=self.folder, 
+                        regression=self.regression, nx=self.nx, 
+                        generator=self.generator, div=self.div,
+                        hidden_channels=self.hidden_channels)
 
     def load_mean(self, folder):
         if exists(f'{folder}/net_mean.pt'):

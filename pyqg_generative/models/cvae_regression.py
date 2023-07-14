@@ -15,7 +15,10 @@ from pyqg_generative.models.parameterization import Parameterization
 from pyqg_generative.tools.operators import coord
 
 class CVAERegression(Parameterization):
-    def __init__(self, regression='None', decoder_var = 'adaptive', folder='model', div=False):
+    def __init__(self, regression='None', 
+                 decoder_var = 'adaptive', 
+                 folder='model', div=False,
+                 hidden_channels=[128, 64, 32, 32, 32, 32, 32]):
         '''
         Regression parameter:
         'None': predict full subgrid forcing
@@ -36,9 +39,10 @@ class CVAERegression(Parameterization):
         self.regression = regression
         self.decoder_var = decoder_var
         self.div = div
+        self.hidden_channels = hidden_channels
 
         # Decoder (x,z -> y) is identical to the Generator of GAN model
-        self.decoder = AndrewCNN(n_in+self.n_latent,n_out, div=div)
+        self.decoder = AndrewCNN(n_in+self.n_latent,n_out, div=div, hidden_channels=hidden_channels)
 
         # Encoder (x,y -> z)
         self.encoder = AndrewCNN(n_in+n_out, 2*self.n_latent)
@@ -79,7 +83,10 @@ class CVAERegression(Parameterization):
             torch.save(self.net_mean.state_dict(), f'{self.folder}/net_mean.pt')
         self.x_scale.write('x_scale.json', folder=self.folder)
         self.y_scale.write('y_scale.json', folder=self.folder)
-        save_model_args('CVAERegression', folder=self.folder, regression=self.regression, div=self.div, decoder_var=self.decoder_var)
+        save_model_args('CVAERegression', folder=self.folder, 
+                        regression=self.regression, div=self.div, 
+                        decoder_var=self.decoder_var,
+                        hidden_channels=self.hidden_channels)
 
     def load_model(self, folder):
         if exists(f'{folder}/encoder.pt'):

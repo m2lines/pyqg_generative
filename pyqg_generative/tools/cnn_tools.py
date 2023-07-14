@@ -123,7 +123,10 @@ def divergence(x):
     return div
 
 class AndrewCNN(nn.Module):
-    def __init__(self, n_in: int, n_out: int, ReLU = 'ReLU', div=False) -> list:
+    def __init__(self, n_in: int, n_out: int, ReLU = 'ReLU', div=False, 
+            hidden_channels=[128, 64, 32, 32, 32, 32, 32],
+                    kernels=[  5,  5,  3,  3,  3,  3,  3,  3]
+                    ):
         '''
         Packs sequence of 8 convolutional layers in a list.
         First layer has n_in input channels, and Last layer has n_out
@@ -134,14 +137,22 @@ class AndrewCNN(nn.Module):
         if div:
             n_out *= 2
         blocks = []
-        blocks.extend(make_block(n_in,128,5,ReLU))                #1
-        blocks.extend(make_block(128,64,5,ReLU))                  #2
-        blocks.extend(make_block(64,32,3,ReLU))                   #3
-        blocks.extend(make_block(32,32,3,ReLU))                   #4
-        blocks.extend(make_block(32,32,3,ReLU))                   #5
-        blocks.extend(make_block(32,32,3,ReLU))                   #6
-        blocks.extend(make_block(32,32,3,ReLU))                   #7
-        blocks.extend(make_block(32,n_out,3,'False',False))       #8
+        
+        # First convolutional layer
+        blocks.extend(make_block(n_in,
+                                 hidden_channels[0],
+                                 kernels[0],ReLU))
+        
+        for i in range(len(hidden_channels)-1):
+            blocks.extend(make_block(hidden_channels[i],
+                                     hidden_channels[i+1],
+                                     kernels[i+1],ReLU))
+            
+        # Last convolutional layer
+        blocks.extend(make_block(hidden_channels[-1],
+                                 n_out,
+                                 kernels[-1],'False',False))
+        
         self.conv = nn.Sequential(*blocks)
     def forward(self, x):
         x = self.conv(x)
