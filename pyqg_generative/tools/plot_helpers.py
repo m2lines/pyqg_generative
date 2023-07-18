@@ -94,11 +94,7 @@ def set_letters(x=-0.2, y=1.05, fontsize=11, letters=['a', 'b', 'c', 'd', 'e', '
     axes = fig.axes
     j = 0
     for ax in axes:
-        subplot=False
-        for key in ax.__dict__.keys():
-            if 'subplot' in key:
-                subplot = True
-        if subplot:
+        if len(ax.images) > 0 or len(ax.lines) > 0:
             ax.text(x,y,f'({letters[j]})', transform = ax.transAxes, fontweight='bold', fontsize=fontsize)
             j += 1
 
