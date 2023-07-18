@@ -27,11 +27,13 @@ def default_rcParams(kw={}):
     plt.plot()
     plt.close()
     rcParams = matplotlib.rcParamsDefault.copy()
-    try:
-        rcParams.pop('backend') # can break inlining
-    except:
-        pass
-    matplotlib.rcParams.update(rcParams)
+    
+    # We do not change backend because it can break
+    # inlining; Also, 'backend' key is broken and 
+    # we cannot use pop method
+    for key, val in rcParams.items():
+        if key != 'backend':
+            rcParams[key] = val
     
     matplotlib.rcParams.update({
         'font.family': 'MathJax_Main',
@@ -42,11 +44,11 @@ def default_rcParams(kw={}):
         'figure.subplot.wspace': 0.3,
         
         'font.size': 10,
-        'axes.labelsize': 10,
-        'axes.titlesize': 12,
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'legend.fontsize': 10,
+        # 'axes.labelsize': 10,
+        # 'axes.titlesize': 12,
+        # 'xtick.labelsize': 10,
+        # 'ytick.labelsize': 10,
+        # 'legend.fontsize': 10,
 
         'axes.formatter.limits': (-1,2),
         'axes.formatter.use_mathtext': True,
