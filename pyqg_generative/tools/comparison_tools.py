@@ -75,11 +75,14 @@ def coarsegrain_reference_dataset(ds, resolution, operator):
         operator = op.Operator2
     elif operator == 'Operator4':
         operator = op.Operator4
+    elif operator == 'Operator5':
+        operator = op.Operator5
     else:
         raise ValueError('operator must be Operator1 or Operator2')
 
     dsf = xr.Dataset()
     for var in ['q', 'u', 'v', 'psi']:
+        print(f'var={var}')
         dsf[var] = operator(ds[var], resolution)
 
     # Coarsegrain spectral flux
@@ -191,6 +194,82 @@ def diagnostic_differences_Perezhogin(ds1, ds2, T=128):
         
     return normalized_differences, differences, scales
 
+def dataset_statistics(ds, delta=0.25, **kw_ispec):
+    '''
+    If path is given, the dataset is returned as is
+    If dataset is given, statistics are computed
+    '''
+    if isinstance(ds, str):
+        ds = xr.open_mfdataset(ds, combine='nested', concat_dim='run', decode_times=False, chunks={'time':1, 'run':1})
+        if 'years' not in ds['time'].attrs:
+            ds['time'] = ds['time'] / 360
+            ds['time'].attrs = {'long_name':'time [$years$]'}
+        return ds
+
+    def KE(ds):
+        return (ds.u**2 + ds.v**2) * 0.5
+    
+    def KE_time(ds):
+        if 'run' in ds.dims:
+            dims = ['run', 'x', 'y']
+        else:
+            dims = ['x', 'y']
+        return op.ave_lev(KE(ds), delta=delta).mean(dims)
+    
+    stats = xr.Dataset()
+
+    m = pyqg.QGModel(nx=len(ds.x), log_level=0)
+    for key in ['APEflux', 'APEgenspec', 'Dissspec', 'ENSDissspec', 
+        'ENSflux', 'ENSfrictionspec', 'ENSgenspec', 'ENSparamspec', 
+        'Ensspec', 'KEflux', 'KEfrictionspec', 'KEspec', 'entspec', 
+        'paramspec', 'paramspec_APEflux', 'paramspec_KEflux']:
+        if key not in ds.keys():
+            continue
+        var = ds[key]    
+        if 'run' in ds.dims:
+            var = var.mean(dim='run')
+        if 'lev' in var.dims:
+            sps = []
+            for z in [0,1]:
+                k, sp = calc_ispec(m, var.isel(lev=z).values, **kw_ispec)
+                sps.append(sp)
+            sp = np.stack(sps, axis=0)
+            stats[key+'r'] = \
+                xr.DataArray(sp, dims=['lev', 'kr'],
+                coords=[[1,2], coord(k, 'wavenumber, $m^{-1}$')])
+
+            var_mean = op.ave_lev(var, delta)
+            k, sp = calc_ispec(m, var_mean.values, **kw_ispec)
+            stats[key+'r_mean'] = \
+                xr.DataArray(sp, dims=['kr'],
+                coords=[coord(k, 'wavenumber, $m^{-1}$')])
+        else:
+            k, sp = calc_ispec(m, var.values, **kw_ispec)
+            stats[key+'r'] = \
+                xr.DataArray(sp, dims=['kr'],
+                coords=[coord(k, 'wavenumber, $m^{-1}$')])
+
+    budget_sum = 0
+    for key in ['KEfluxr', 'APEfluxr', 'APEgenspecr', 'KEfrictionspecr', 
+        'paramspec_APEfluxr', 'paramspec_KEfluxr']:
+        if key in stats.keys():
+            budget_sum += stats[key]
+    stats['Energysumr'] = budget_sum
+
+    Eflux = 0
+    for key in ['KEfluxr', 'APEfluxr', 'paramspec_KEfluxr', 'paramspec_APEfluxr']:
+        if key in stats.keys():
+            Eflux = Eflux + stats[key]
+    stats['Efluxr'] = Eflux
+
+    stats['KE_time'] = KE_time(ds)
+
+    if 'years' not in stats['time'].attrs:
+        stats['time'] = stats['time'] / 360
+        stats['time'].attrs = {'long_name':'time [$years$]'}
+
+    return stats
+
 def cache_path(path):
     dir = os.path.dirname(path)
     files = os.path.basename(path)
@@ -198,7 +277,7 @@ def cache_path(path):
     cachename = files.encode('utf-8').hex() + '.cache_netcdf'
     return os.path.join(dir,cachename)
 
-def dataset_smart_read(path, delta=0.25, read_cache=True):
+def dataset_smart_read(path, delta=0.25, read_cache=True, compute_all=True):
     #print(path)
     nfiles = len(glob.glob(path))
     #if nfiles < 10:
@@ -206,7 +285,7 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     cache = cache_path(path)
     if os.path.exists(cache) and read_cache:
         #print('Read cache ' + cache)
-        ds1 = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False)
+        ds1 = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False, chunks={'time':1, 'run':1})
         ds2 = xr.open_dataset(cache)
         ds1['time'] = ds1['time'] / 360
         ds1['time'].attrs = {'long_name':'time [$years$]'}
@@ -216,7 +295,7 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
         #print('Delete cache ' + cache)
         os.remove(cache)
 
-    ds = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False)
+    ds = xr.open_mfdataset(path, combine='nested', concat_dim='run', decode_times=False, chunks={'time':1, 'run':1})
     ds['time'] = ds['time'] / 360
     ds['time'].attrs = {'long_name':'time [$years$]'}
 
@@ -238,13 +317,18 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
     def Vabs(ds):
         return np.sqrt(2*KE(ds))
 
-    stats['omega'] = relative_vorticity(ds)
-    stats['KE'] = KE(ds)
-    stats['Ens'] = Ens(ds)
-    stats['Vabs'] = Vabs(ds)
+    if compute_all:
+        stats['omega'] = relative_vorticity(ds)
+        stats['KE'] = KE(ds)
+        stats['Ens'] = Ens(ds)
+        stats['Vabs'] = Vabs(ds)
     
     def PDF_var(ds, var, lev):
-        ds_ = ds.isel(time=AVERAGE_SLICE_ANDREW).isel(lev=lev)
+        if compute_all:
+            time = AVERAGE_SLICE_ANDREW
+        else:
+            time = slice(-1, None)
+        ds_ = ds.isel(time=time).isel(lev=lev)
         if var == 'KE':
             values = KE(ds_)
         elif var == 'Ens':
@@ -268,7 +352,12 @@ def dataset_smart_read(path, delta=0.25, read_cache=True):
         points, density = PDF_histogram(values, xmin=xmin, xmax=xmax)
         return xr.DataArray(density, dims=f'{var}_{lev}', coords=[points])
 
-    for var in ['q', 'u', 'v', 'KE', 'Ens']:
+    if compute_all:
+        variables = ['q', 'u', 'v', 'KE', 'Ens']
+    else:
+        variables = ['q', 'u', 'v', 'KE']
+    
+    for var in variables:
         for lev in [0,1]:
             stats[f'PDF_{var}{lev+1}'] = PDF_var(ds, var, lev)
 

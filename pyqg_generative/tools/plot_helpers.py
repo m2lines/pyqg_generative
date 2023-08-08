@@ -24,16 +24,15 @@ def default_rcParams(kw={}):
     - without plotting something as initialization,
     inline does not work
     '''
-    plt.plot()
-    plt.close()
     rcParams = matplotlib.rcParamsDefault.copy()
     
     # We do not change backend because it can break
     # inlining; Also, 'backend' key is broken and 
     # we cannot use pop method
     for key, val in rcParams.items():
-        if key != 'backend':
-            rcParams[key] = val
+        if 'backend' not in key and 'interactive' not in key:
+            #print(key, val)
+            matplotlib.rcParams[key] = val
     
     matplotlib.rcParams.update({
         'font.family': 'MathJax_Main',

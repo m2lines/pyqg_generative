@@ -190,7 +190,7 @@ if __name__ ==  '__main__':
     print(args)
     
     if args.forcing == "yes":
-        Nc = [48, 64, 96]
+        Nc = [8, 12, 16, 24, 32, 48, 64, 96]
 
         datasets = generate_subgrid_forcing(Nc, eval(args.pyqg_params), args.sampling_freq)
         for key in datasets.keys():
