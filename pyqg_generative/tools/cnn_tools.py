@@ -77,13 +77,13 @@ def batch_norm(bn, nchannels, ny, nx):
         print('Wrong bn parameter, bn=', bn)
 
 def make_block(in_channels: int, out_channels: int, kernel_size: int, 
-        ReLU = 'ReLU', batch_norm = True) -> list:
+        ReLU = 'ReLU', batch_norm = True, bias=True) -> list:
     '''
     Packs convolutional layer and optionally ReLU/BatchNorm2d
     layers in a list
     '''
     conv = nn.Conv2d(in_channels, out_channels, kernel_size, 
-        padding='same', padding_mode='circular')
+        padding='same', padding_mode='circular', bias=bias)
     block = [conv]
     if ReLU == 'ReLU':
         block.append(nn.ReLU())
@@ -123,7 +123,10 @@ def divergence(x):
     return div
 
 class AndrewCNN(nn.Module):
-    def __init__(self, n_in: int, n_out: int, ReLU = 'ReLU', div=False, 
+    def __init__(self, n_in: int, n_out: int, 
+            ReLU = 'ReLU', batch_norm=True, bias=True,
+            final_activation='None',
+            div=False, 
             hidden_channels=[128, 64, 32, 32, 32, 32, 32],
                     kernels=[  5,  5,  3,  3,  3,  3,  3,  3]
                     ):
@@ -134,6 +137,7 @@ class AndrewCNN(nn.Module):
         '''
         super().__init__()
         self.div = div
+
         if div:
             n_out *= 2
         blocks = []
@@ -141,21 +145,28 @@ class AndrewCNN(nn.Module):
         # First convolutional layer
         blocks.extend(make_block(n_in,
                                  hidden_channels[0],
-                                 kernels[0],ReLU))
+                                 kernels[0],ReLU,batch_norm,bias))
         
         for i in range(len(hidden_channels)-1):
             blocks.extend(make_block(hidden_channels[i],
                                      hidden_channels[i+1],
-                                     kernels[i+1],ReLU))
+                                     kernels[i+1],ReLU,batch_norm,bias))
             
         # Last convolutional layer
         blocks.extend(make_block(hidden_channels[-1],
                                  n_out,
-                                 kernels[-1],'False',False))
+                                 kernels[-1],'False',False,bias))
+        
+        if final_activation != 'None':
+            self.final_activation = eval(final_activation)
         
         self.conv = nn.Sequential(*blocks)
     def forward(self, x):
         x = self.conv(x)
+
+        if hasattr(self, 'final_activation'):
+            x = self.final_activation(x)
+
         if self.div:
             # This parameter, 10000, just to improve convergence
             # Note it is not the part of the divergence procedure

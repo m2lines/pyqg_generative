@@ -87,7 +87,7 @@ def generate_subgrid_forcing(Nc, pyqg_params, sampling_freq=ANDREW_1000_STEPS):
     out = {}
     for t in m.run_with_snapshots(tsnapint=sampling_freq):
         qdns = m.q
-        for op in [Operator5]:
+        for op in [Operator2, Operator5]:
             for nc in Nc:
                 forcing, mf, _ = PV_subgrid_forcing(qdns, nc, op, pyqg_params, '3/2-rule')
                 mf = mf.to_dataset()
@@ -190,7 +190,7 @@ if __name__ ==  '__main__':
     print(args)
     
     if args.forcing == "yes":
-        Nc = [8, 12, 16, 24, 32, 48, 64, 96]
+        Nc = [32, 48, 64, 96, 128]
 
         datasets = generate_subgrid_forcing(Nc, eval(args.pyqg_params), args.sampling_freq)
         for key in datasets.keys():

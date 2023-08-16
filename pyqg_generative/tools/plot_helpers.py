@@ -59,7 +59,7 @@ def default_rcParams(kw={}):
     })
     matplotlib.rcParams.update(**kw)
 
-def create_animation(fun, idx, filename='my-animation.gif', dpi=None, FPS=24, loop=0):
+def create_animation(fun, idx, filename='my-animation.gif', dpi=200, FPS=18, loop=0, deezering=True):
     '''
     See https://pythonprogramming.altervista.org/png-to-gif/
     fun(i) - a function creating one snapshot, has only one input:
@@ -73,9 +73,12 @@ def create_animation(fun, idx, filename='my-animation.gif', dpi=None, FPS=24, lo
     frames = []
     for i in idx:
         fun(i)
-        plt.savefig('.frame.png', dpi=dpi)
+        plt.savefig('.frame.png', dpi=dpi, bbox_inches='tight')
         plt.close()
-        frames.append(Image.open('.frame.png'))
+        if deezering:
+            frames.append(Image.open('.frame.png').convert('RGB'))
+        else:
+            frames.append(Image.open('.frame.png'))
         print(f'Frame {i} is created', end='\r')
     os.system('rm .frame.png')
     # How long to persist one frame in milliseconds to have a desired FPS

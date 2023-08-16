@@ -10,7 +10,10 @@ from pyqg_generative.tools.cnn_tools import AndrewCNN, ChannelwiseScaler, log_to
 from pyqg_generative.models.parameterization import Parameterization
 
 class OLSModel(Parameterization):
-    def __init__(self, div=False, folder='model'):
+    def __init__(self, div=False, 
+                 batch_norm=True, bias=True, final_activation='None',
+                 hidden_channels = [128, 64, 32, 32, 32, 32, 32],
+                 folder='model'):
         super().__init__()
         self.folder = folder
         os.system(f'mkdir -p {folder}')
@@ -18,7 +21,14 @@ class OLSModel(Parameterization):
         # Input 2 layers of q, 
         # output 2 layers of q_forcing_advection
         self.div = div
-        self.net = AndrewCNN(2,2, div=div)
+        self.batch_norm = batch_norm
+        self.bias = bias
+        self.final_activation = final_activation
+        self.hidden_channels = hidden_channels
+
+        self.net = AndrewCNN(2,2,div=div,
+                            batch_norm=batch_norm,bias=bias,final_activation=final_activation,
+                            hidden_channels=hidden_channels)
 
         self.load_model(folder)
 
@@ -40,7 +50,10 @@ class OLSModel(Parameterization):
         torch.save(self.net.state_dict(), f'{self.folder}/net.pt')
         self.x_scale.write('x_scale.json', folder=self.folder)
         self.y_scale.write('y_scale.json', folder=self.folder)
-        save_model_args('OLSModel', folder=self.folder, div=self.div)
+        save_model_args('OLSModel', folder=self.folder, div=self.div,
+                        batch_norm=self.batch_norm, bias=self.bias, 
+                        final_activation=self.final_activation,
+                        hidden_channels=self.hidden_channels)
         log_to_xarray(self.net.log_dict).to_netcdf(f'{self.folder}/stats.nc')
 
     def load_model(self, folder):
