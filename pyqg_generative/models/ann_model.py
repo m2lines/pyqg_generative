@@ -5,6 +5,7 @@ import xarray as xr
 from os.path import exists
 import os
 import json
+from time import time
 
 from pyqg_generative.models.parameterization import Parameterization
 from pyqg_generative.tools.cnn_tools import ANN, train, save_model_args, \
@@ -28,7 +29,7 @@ class ANNModel(Parameterization):
             self.load_model(folder)
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
-        batch_size=2**16, learning_rate=0.001):
+        batch_size=2**15, learning_rate=0.001, **kw):
 
         X_train, Y_train, self.x_scale, self.y_scale = prepare_data_ANN(ds_train, self.stencil_size)
         X_test, Y_test, _, _ = prepare_data_ANN(ds_test, self.stencil_size)
@@ -38,10 +39,12 @@ class ANNModel(Parameterization):
         Y_train = Y_train / self.y_scale
         Y_test = Y_test / self.y_scale
 
+        t_start = time()
         train(self.net,
             X_train, Y_train,
             X_test, Y_test,
-            num_epochs, batch_size, learning_rate)
+            num_epochs, batch_size, learning_rate, **kw)
+        print(f'training took {time() - t_start:.2f} seconds')
         
         self.save_model()
 
@@ -60,7 +63,7 @@ class ANNModel(Parameterization):
 
     def load_model(self, folder):
         if exists(f'{folder}/net.pt'):
-            print(f'reading OLSModel from {folder}')
+            print(f'reading ANNModel from {folder}')
             self.net.load_state_dict(
                 torch.load(f'{folder}/net.pt', map_location='cpu')
             )
@@ -80,7 +83,7 @@ class ANNModel(Parameterization):
 
         x = xarray_to_stencil(q, self.stencil_size) / self.x_scale
 
-        y = self.y_scale * apply_function(self.net, x, batch_size=2**16)
+        y = self.y_scale * apply_function(self.net, x, batch_size=2**15)
         y = stencil_to_numpy(y, q.shape[-2], q.shape[-1])
 
         return y.astype('float64')

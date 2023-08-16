@@ -608,11 +608,12 @@ def minibatch(*arrays: np.array, batch_size=64, shuffle=True):
         idx = order[step*batch_size:(step+1)*batch_size]
         yield tuple(torch.as_tensor(array[idx]) for array in arrays)
 
-def evaluate_test(net, *arrays: np.array, batch_size=64, postfix='_test'):
+def evaluate_test(net, *arrays: np.array, batch_size=64, postfix='_test', device=None):
     '''
     Updates logger on test dataset
     '''
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
 
     # To do not update parameters of 
@@ -630,7 +631,7 @@ def evaluate_test(net, *arrays: np.array, batch_size=64, postfix='_test'):
 
 def train(net, X_train: np.array, Y_train:np. array, 
         X_test: np.array, Y_test: np.array, 
-        num_epochs, batch_size, learning_rate):
+        num_epochs, batch_size, learning_rate, device=None):
     '''
     X_train, Y_train are arrays of size
     Nbatch x Nfeatures x Ny x Nx.
@@ -640,11 +641,16 @@ def train(net, X_train: np.array, Y_train:np. array,
     is used for optimization,
     while others are used for logger.
     '''
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net.to(device)
-    device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
-    print(f"Training starts on device {device_name}, number of samples {len(X_train)}")
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    if device != "cpu":
+        device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+    else:
+        device_name = "cpu"
+    print(f"Training starts on device {device_name}, number of samples {len(X_train)}")
+    
+    net.to(device)
     # Switch batchnorm2d layer to training mode
     net.train()
 
@@ -656,12 +662,15 @@ def train(net, X_train: np.array, Y_train:np. array,
         net.log_dict
     except:
         net.log_dict = {}
-        
+            
+    # dataset = TensorDataset(torch.as_tensor(X_train), torch.as_tensor(Y_train))
+    # data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=1)
     t_s = time()
     for epoch in range(0,num_epochs):
         t_e = time()
         logger = AverageLoss(net.log_dict)
         for x, y in minibatch(X_train, Y_train, batch_size=batch_size):
+        # for x, y in data_loader:
             optimizer.zero_grad()
             losses = net.compute_loss(x.to(device),y.to(device))
             losses['loss'].backward() # optimize over the 'loss' value
@@ -670,7 +679,7 @@ def train(net, X_train: np.array, Y_train:np. array,
         scheduler.step()
 
         logger.average(net.log_dict)
-        evaluate_test(net, X_test, Y_test, batch_size=batch_size)
+        evaluate_test(net, X_test, Y_test, batch_size=batch_size, device=device)
         t = time()
         print('[%d/%d] [%.2f/%.2f] Loss: [%.3f, %.3f]' 
             % (epoch+1, num_epochs,
