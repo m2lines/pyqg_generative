@@ -311,6 +311,76 @@ class upsampling(nn.Module):
             return self.net(self.ANN(x).view(x.size(0), -1, self.nx_coarse, self.nx_coarse))
         else:
             return self.net(x)
+        
+def xarray_to_stencil(var, stencil_size=3):
+    '''
+    var is the xarray of shape BATCH x Y x X
+    returns BATCH x Stencil_size**2
+    '''
+    if stencil_size%2 == 0:
+        print('Error: stencil_size must be 3,5,7...')
+
+    ny = var.shape[-2]
+    nx = var.shape[-1]
+    x = var.pad(x=stencil_size//2,y=stencil_size//2,mode='wrap').values
+    
+    Z = []
+    for j in range(ny):
+        for i in range(nx):
+            z = x[:,j:j+stencil_size,i:i+stencil_size].reshape(-1,stencil_size**2)
+            Z.append(z)
+    Z = np.vstack(Z)
+    return Z
+
+def stencil_to_numpy(var, ny, nx, stencil_size=1):
+    '''
+    reshape numpy data BATCH x 1
+    back to BATCH x Y x X
+    '''
+    if stencil_size != 1:
+        print('Error: not implemented')
+    
+    if var.shape[0] % (ny*nx) != 0:
+        print('Error batch dimension should be divisible to the image size')
+    batch_image = var.shape[0] // (ny*nx)
+    
+    x = np.zeros((batch_image, ny, nx))
+    
+    for j in range(ny):
+        for i in range(nx):
+            x[:,j,i] = var[(i+nx*j)*batch_image:(i+nx*j+1)*batch_image].squeeze()
+    return x
+
+def stack_images(x):
+    '''
+    Scan for dimensions which can be 
+    interpreted as batch dimension:
+    run, time, lev
+    and stack them into batch dimension
+    '''
+    dims = []
+    for dim in ['run', 'time', 'lev']:
+        if dim in x.dims:
+            dims.append(dim)
+    return x.stack(batch=dims).transpose('batch','y','x')
+
+def prepare_data_ANN(ds, stencil_size):
+    def st(x):
+        '''
+        output is Batch x Ny x Nx
+        '''
+        return x.stack(batch=('run','time','lev')).transpose('batch','y','x')
+    
+    x = stack_images(ds.q)
+    y = stack_images(ds.q_forcing_advection)
+    
+    x_scale = float(x.astype('float64').std().astype('float32'))
+    y_scale = float(y.astype('float64').std().astype('float32'))
+
+    x = xarray_to_stencil(x, stencil_size)
+    y = xarray_to_stencil(y, 1)
+
+    return x, y, x_scale, y_scale
 
 def extract(ds, key):
     var = ds[key].values
@@ -382,9 +452,15 @@ def channelwise_function(X: np.array, fun) -> np.array:
     '''
 
     N_features = X.shape[1]
-    out = np.zeros((1,N_features,1,1))
+    if len(X.shape) == 4:
+        out = np.zeros((1,N_features,1,1))
+    elif len(X.shape) == 2:
+        out = np.zeros((1,N_features))
+    else:
+        raise ValueError('Wrong dimensions of input array')
+    
     for n_f in range(N_features):
-        out[0,n_f,0,0] = fun(X[:,n_f,:,:])
+        out[0,n_f] = fun(X[:,n_f])
 
     return out.astype('float32')
 
@@ -601,7 +677,7 @@ def train(net, X_train: np.array, Y_train:np. array,
             t-t_e, (t-t_s)*(num_epochs/(epoch+1)-1),
             net.log_dict['loss'][-1], net.log_dict['loss_test'][-1]))
 
-def apply_function(net, *X, fun=None, **kw):
+def apply_function(net, *X, fun=None, batch_size=64, **kw):
     '''
     X - numpy arrays of size Nbatch x Nfeatures x Ny x Nx.
     fun - POINTWISE (in batch dimension) function to apply to X
@@ -617,7 +693,7 @@ def apply_function(net, *X, fun=None, **kw):
         fun = net.forward
     # stack batch predictions in a list
     preds = []
-    for x in minibatch(*X, batch_size=64, shuffle=False):
+    for x in minibatch(*X, batch_size=batch_size, shuffle=False):
         with torch.no_grad():
             xx = [xx.to(device) for xx in x]
             y = fun(*xx, **kw)
