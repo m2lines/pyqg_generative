@@ -365,22 +365,28 @@ def stack_images(x):
     return x.stack(batch=dims).transpose('batch','y','x')
 
 def prepare_data_ANN(ds, stencil_size):
-    def st(x):
-        '''
-        output is Batch x Ny x Nx
-        '''
-        return x.stack(batch=('run','time','lev')).transpose('batch','y','x')
     
-    x = stack_images(ds.q)
-    y = stack_images(ds.q_forcing_advection)
+    if not isinstance(ds, list):
+        ds = [ds]
     
-    x_scale = float(x.astype('float64').std().astype('float32'))
-    y_scale = float(y.astype('float64').std().astype('float32'))
+    X = []
+    Y = []
+    for _ds in ds:
+        x = stack_images(_ds.q)
+        y = stack_images(_ds.q_forcing_advection)
+        
+        X.append(xarray_to_stencil(x, stencil_size))
+        Y.append(xarray_to_stencil(y, 1))
+    
+    X = np.vstack(X)
+    Y = np.vstack(Y)
 
-    x = xarray_to_stencil(x, stencil_size)
-    y = xarray_to_stencil(y, 1)
+    center_idx = stencil_size**2//2
 
-    return x, y, x_scale, y_scale
+    x_scale = float(X[:,center_idx].astype('float64').std().astype('float32'))
+    y_scale = float(Y.astype('float64').std().astype('float32'))
+
+    return X, Y, x_scale, y_scale
 
 def extract(ds, key):
     var = ds[key].values
