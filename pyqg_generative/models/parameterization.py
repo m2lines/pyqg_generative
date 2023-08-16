@@ -69,6 +69,11 @@ class Parameterization(pyqg.QParameterization):
         preds['spatial_mse'] = error.mean(dim=time)
         preds['temporal_mse'] = error.mean(dim=space)
         preds['mse'] = error.mean(dim=both)
+        preds['temporal_sgs_ms'] = (true**2).mean(dim=space)
+
+        preds['spatial_nmse'] = error.mean(dim=time) / (true**2).mean(dim=time)
+        preds['temporal_nmse'] = error.mean(dim=space) / (true**2).mean(dim=space)
+        preds['nmse'] = error.mean(dim=both) / (true**2).mean(dim=both)
 
         def limits(x):
             return np.minimum(np.maximum(x, -10), 1)
@@ -113,6 +118,14 @@ class Parameterization(pyqg.QParameterization):
         preds['Eflux_res'] = sp_save(psi, preds[target+'_res'])
         preds['Eflux_gen_res'] = sp_save(psi, preds[target+'_gen_res'])
         preds['Eflux_mean'] = sp_save(psi, preds[target+'_mean'])
+
+        # Additional layerwise spectral metrics
+        def L2(x, x_true):
+            dims = [d for d in x.dims if d != 'lev']
+            return (((x-x_true)**2).mean(dims) / (x_true**2).mean(dims))**0.5
+        
+        preds['L2_PSD'] = L2(preds['PSD_gen'], preds['PSD'])
+        preds['L2_Eflux'] = L2(preds['Eflux_gen'], preds['Eflux'])
 
         # Cross layer covariances
         sp = spectrum(type='cross_layer')
