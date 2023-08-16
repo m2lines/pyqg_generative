@@ -12,24 +12,27 @@ from pyqg_generative.tools.cnn_tools import ANN, train, save_model_args, \
     log_to_xarray, prepare_data_ANN, xarray_to_stencil, apply_function, \
     stencil_to_numpy, stack_images
 
+BATCH_SIZE = 2**15
+
 class ANNModel(Parameterization):
-    def __init__(self, stencil_size=3, hidden_channels = [24, 24], folder='model', read=True):
+    def __init__(self, scale_invariant=False, stencil_size=3, hidden_channels = [24, 24], folder='model', read=True):
         super().__init__()
         self.folder = folder
         os.system(f'mkdir -p {folder}')
 
         self.stencil_size = stencil_size
         self.hidden_channels = hidden_channels
+        self.scale_invariant = scale_invariant
 
         # input is the PV field on stencil_size x stencil_size grid
         # output is a single point of dq/dt
 
-        self.net = ANN(stencil_size**2, 1, hidden_channels)
+        self.net = ANN(stencil_size**2, 1, hidden_channels, degree=2 if scale_invariant else None)
         if read:
             self.load_model(folder)
 
     def fit(self, ds_train, ds_test, num_epochs=50, 
-        batch_size=2**15, learning_rate=0.001, **kw):
+        batch_size=BATCH_SIZE, learning_rate=0.001, **kw):
 
         X_train, Y_train, self.x_scale, self.y_scale = prepare_data_ANN(ds_train, self.stencil_size)
         X_test, Y_test, _, _ = prepare_data_ANN(ds_test, self.stencil_size)
@@ -57,7 +60,8 @@ class ANNModel(Parameterization):
 
         save_model_args('ANNModel', folder=self.folder, 
                         stencil_size=self.stencil_size,
-                        hidden_channels=self.hidden_channels)
+                        hidden_channels=self.hidden_channels,
+                        scale_invariant=self.scale_invariant)
 
         log_to_xarray(self.net.log_dict).to_netcdf(f'{self.folder}/stats.nc')        
 
@@ -83,7 +87,7 @@ class ANNModel(Parameterization):
 
         x = xarray_to_stencil(q, self.stencil_size) / self.x_scale
 
-        y = self.y_scale * apply_function(self.net, x, batch_size=2**15)
+        y = self.y_scale * apply_function(self.net, x, batch_size=BATCH_SIZE)
         y = stencil_to_numpy(y, q.shape[-2], q.shape[-1])
 
         return y.astype('float64')
@@ -102,7 +106,7 @@ class ANNModel(Parameterization):
         
         XX = xarray_to_stencil(X, self.stencil_size) / self.x_scale
 
-        Y = self.y_scale * apply_function(self.net, XX, batch_size=2**16)
+        Y = self.y_scale * apply_function(self.net, XX, batch_size=BATCH_SIZE)
         Y = stencil_to_numpy(Y, X.shape[-2], X.shape[-1]) + 0*X
         Y = Y.unstack().transpose('run', 'time', 'lev', 'y', 'x')
         

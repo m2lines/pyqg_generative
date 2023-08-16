@@ -182,8 +182,10 @@ class AndrewCNN(nn.Module):
         return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
     
 class ANN(nn.Module):
-    def __init__(self, n_in, n_out, hidden_channels=[24, 24]):
+    def __init__(self, n_in, n_out, hidden_channels=[24, 24], degree=None):
         super().__init__()
+
+        self.degree = degree
     
         layers = []
         layers.append(nn.Linear(n_in, hidden_channels[0]))
@@ -198,7 +200,11 @@ class ANN(nn.Module):
         self.layers = nn.Sequential(*layers)
     
     def forward(self, x):
-        return self.layers(x)
+        if self.degree is not None:
+            norm = torch.norm(x, dim=-1, p=2, keepdim=True)
+            return norm**self.degree * self.layers(x / norm)
+        else:
+            return self.layers(x)
     
     def compute_loss(self, x, ytrue):
         return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
@@ -375,8 +381,9 @@ def prepare_data_ANN(ds, stencil_size):
         x = stack_images(_ds.q)
         y = stack_images(_ds.q_forcing_advection)
         
-        X.append(xarray_to_stencil(x, stencil_size, step=stencil_size))
-        Y.append(xarray_to_stencil(y, 1, step=stencil_size))
+        # step 3 is a marginal solution to reduce size 9 times
+        X.append(xarray_to_stencil(x, stencil_size, step=3))
+        Y.append(xarray_to_stencil(y, 1, step=3))
     
     X = np.vstack(X)
     Y = np.vstack(Y)
