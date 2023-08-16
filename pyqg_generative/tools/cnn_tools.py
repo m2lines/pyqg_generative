@@ -180,6 +180,28 @@ class AndrewCNN(nn.Module):
         as regression model with standard trainer cnn_tools.train()
         '''
         return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
+    
+class ANN(nn.Module):
+    def __init__(self, n_in, n_out, hidden_channels=[24, 24]):
+        super().__init__()
+    
+        layers = []
+        layers.append(nn.Linear(n_in, hidden_channels[0]))
+        layers.append(nn.ReLU())
+        
+        for i in range(len(hidden_channels)-1):
+            layers.append(nn.Linear(hidden_channels[i], hidden_channels[i+1]))
+            layers.append(nn.ReLU())
+            
+        layers.append(nn.Linear(hidden_channels[-1], n_out))
+        
+        self.layers = nn.Sequential(*layers)
+    
+    def forward(self, x):
+        return self.layers(x)
+    
+    def compute_loss(self, x, ytrue):
+        return {'loss': nn.MSELoss()(self.forward(x), ytrue)}
 
 def DCGAN_discriminator(in_channels, ndf=64, nx=64, bn='BatchNorm'):
     '''
