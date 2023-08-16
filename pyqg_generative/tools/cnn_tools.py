@@ -312,7 +312,7 @@ class upsampling(nn.Module):
         else:
             return self.net(x)
         
-def xarray_to_stencil(var, stencil_size=3):
+def xarray_to_stencil(var, stencil_size=3, step=1):
     '''
     var is the xarray of shape BATCH x Y x X
     returns BATCH x Stencil_size**2
@@ -323,10 +323,10 @@ def xarray_to_stencil(var, stencil_size=3):
     ny = var.shape[-2]
     nx = var.shape[-1]
     x = var.pad(x=stencil_size//2,y=stencil_size//2,mode='wrap').values
-    
+
     Z = []
-    for j in range(ny):
-        for i in range(nx):
+    for j in range(0,ny,step):
+        for i in range(0,nx,step):
             z = x[:,j:j+stencil_size,i:i+stencil_size].reshape(-1,stencil_size**2)
             Z.append(z)
     Z = np.vstack(Z)
@@ -375,8 +375,8 @@ def prepare_data_ANN(ds, stencil_size):
         x = stack_images(_ds.q)
         y = stack_images(_ds.q_forcing_advection)
         
-        X.append(xarray_to_stencil(x, stencil_size))
-        Y.append(xarray_to_stencil(y, 1))
+        X.append(xarray_to_stencil(x, stencil_size, step=stencil_size))
+        Y.append(xarray_to_stencil(y, 1, step=stencil_size))
     
     X = np.vstack(X)
     Y = np.vstack(Y)
